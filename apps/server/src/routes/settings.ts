@@ -3,22 +3,25 @@ import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { logger } from '../lib/logger';
-import { Platform } from '@prisma/client';
+import { Platform, Prisma } from '@prisma/client';
+import { LineService } from '../services/platforms/LineService';
 
 const router = Router();
 router.use(authMiddleware());
 
 // Helper — flatten config JSON to flat response object
 function flattenConfig(c: { id: string; platform: Platform; config: unknown; isActive: boolean }) {
-  const cfg = (c.config ?? {}) as Record<string, string>;
+  const cfg = (c.config ?? {}) as Record<string, unknown>;
+  const metadata = (cfg.metadata ?? null) as Record<string, unknown> | null;
+
   return {
     id: c.id,
     platform: c.platform,
-    channelId: cfg.channelId ?? '',
-    channelSecret: cfg.channelSecret ?? '',
-    accessToken: cfg.accessToken ?? '',
+    channelId: typeof cfg.channelId === 'string' ? cfg.channelId : '',
+    channelSecret: typeof cfg.channelSecret === 'string' ? cfg.channelSecret : '',
+    accessToken: typeof cfg.accessToken === 'string' ? cfg.accessToken : '',
     isActive: c.isActive,
-    metadata: null,
+    metadata,
   };
 }
 
@@ -45,24 +48,39 @@ const platformSchema = z.object({
 router.post('/platforms', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = platformSchema.parse(req.body);
+
+    let metadata: Record<string, string> | undefined;
+    if (data.platform === 'LINE' && data.accessToken) {
+      try {
+        const botInfo = await LineService.getBotInfoByToken(data.accessToken);
+        metadata = {
+          oaName: botInfo.displayName || '',
+          oaUserId: botInfo.userId || '',
+          oaBasicId: botInfo.basicId || '',
+          oaPictureUrl: botInfo.pictureUrl || '',
+        };
+      } catch (lineInfoError) {
+        logger.warn('Failed to fetch LINE OA info from access token', { lineInfoError });
+      }
+    }
+
+    const configJson: Prisma.InputJsonValue = {
+      channelId: data.channelId,
+      channelSecret: data.channelSecret,
+      accessToken: data.accessToken,
+      metadata: metadata || {},
+    };
+
     const config = await prisma.platformConfig.upsert({
       where: { platform: data.platform },
       create: {
         platform: data.platform,
         isActive: data.isActive,
-        config: {
-          channelId: data.channelId,
-          channelSecret: data.channelSecret,
-          accessToken: data.accessToken,
-        },
+        config: configJson,
       },
       update: {
         isActive: data.isActive,
-        config: {
-          channelId: data.channelId,
-          channelSecret: data.channelSecret,
-          accessToken: data.accessToken,
-        },
+        config: configJson,
       },
     });
     res.status(201).json(flattenConfig(config));
@@ -87,15 +105,41 @@ const updateSchema = z.object({
 router.put('/platforms/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateSchema.parse(req.body);
+
+    const existing = await prisma.platformConfig.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      res.status(404).json({ error: 'Platform config not found' });
+      return;
+    }
+
+    const existingCfg = (existing.config ?? {}) as Record<string, unknown>;
+    let metadata = (existingCfg.metadata ?? {}) as Record<string, string>;
+    if (existing.platform === 'LINE' && data.accessToken) {
+      try {
+        const botInfo = await LineService.getBotInfoByToken(data.accessToken);
+        metadata = {
+          oaName: botInfo.displayName || '',
+          oaUserId: botInfo.userId || '',
+          oaBasicId: botInfo.basicId || '',
+          oaPictureUrl: botInfo.pictureUrl || '',
+        };
+      } catch (lineInfoError) {
+        logger.warn('Failed to refresh LINE OA info from access token', { lineInfoError });
+      }
+    }
+
+    const configJson: Prisma.InputJsonValue = {
+      channelId: data.channelId,
+      channelSecret: data.channelSecret,
+      accessToken: data.accessToken,
+      metadata,
+    };
+
     const config = await prisma.platformConfig.update({
       where: { id: req.params.id },
       data: {
         isActive: data.isActive,
-        config: {
-          channelId: data.channelId,
-          channelSecret: data.channelSecret,
-          accessToken: data.accessToken,
-        },
+        config: configJson,
       },
     });
     res.json(flattenConfig(config));

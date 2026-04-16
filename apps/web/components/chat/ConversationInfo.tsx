@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import type { Conversation, Admin, ConversationNote } from '@/types';
+import type { Conversation, ConversationNote } from '@/types';
 import TagSelector from './TagSelector';
 import BotToggle from './BotToggle';
 import {
-  User, Phone, Mail, MessageCircle, Hash, StickyNote, Plus,
+  Phone, Mail, Plus,
 } from 'lucide-react';
-import { getPlatformIcon, getStatusColor, formatTimeAgo } from '@/lib/utils';
+import { formatTimeAgo } from '@/lib/utils';
+import PlatformBadge from '@/components/common/PlatformBadge';
 
 interface ConversationInfoProps {
   conversationId: string;
@@ -66,15 +67,6 @@ export default function ConversationInfo({ conversationId, onClose }: Conversati
     }
   };
 
-  const handleStatusChange = async (status: string) => {
-    try {
-      await api.patch(`/api/conversations/${conversationId}`, { status });
-      fetchConversation();
-    } catch (error) {
-      console.error('Failed to update status:', error);
-    }
-  };
-
   const handleBotToggle = (_isBot: boolean) => {
     fetchConversation();
   };
@@ -98,9 +90,9 @@ export default function ConversationInfo({ conversationId, onClose }: Conversati
             )}
           </div>
           <h3 className="mt-2 text-sm font-semibold">{contact.displayName}</h3>
-          <span className="text-xs text-gray-500">
-            {getPlatformIcon(conversation.platform)} {conversation.platform}
-          </span>
+          <div className="mt-2">
+            <PlatformBadge platform={conversation.platform} />
+          </div>
         </div>
 
         <div className="mt-4 space-y-2">
@@ -116,26 +108,6 @@ export default function ConversationInfo({ conversationId, onClose }: Conversati
               {contact.email}
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Status */}
-      <div className="border-b border-gray-200 p-4">
-        <h4 className="mb-2 text-xs font-semibold uppercase text-gray-400">Status</h4>
-        <div className="flex flex-wrap gap-1">
-          {['OPEN', 'PENDING', 'RESOLVED', 'SNOOZED'].map((status) => (
-            <button
-              key={status}
-              onClick={() => handleStatusChange(status)}
-              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                conversation.status === status
-                  ? getStatusColor(status)
-                  : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
-              }`}
-            >
-              {status}
-            </button>
-          ))}
         </div>
       </div>
 

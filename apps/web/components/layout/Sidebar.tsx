@@ -38,21 +38,26 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const inner = (
-    <aside className="flex h-full w-64 flex-shrink-0 flex-col border-r border-gray-200 bg-white">
-      <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
+    <aside className="flex h-full w-64 flex-shrink-0 flex-col border-r border-slate-900/60 bg-slate-950 text-slate-100">
+      <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
         <div className="flex items-center gap-2">
-          <MessageSquare className="h-6 w-6 text-brand-600" />
-          <span className="text-lg font-bold text-gray-900">Unified Chat</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-900/30">
+            <MessageSquare className="h-5 w-5" />
+          </div>
+          <div>
+            <span className="block text-sm font-semibold leading-tight text-orange-50">Unified Chat</span>
+            <span className="block text-[11px] text-slate-400">Management Console</span>
+          </div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 md:hidden">
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 md:hidden">
             <X className="h-5 w-5" />
           </button>
         )}
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">หลัก</p>
+        <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">หลัก</p>
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -64,8 +69,8 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-brand-50 text-brand-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-gradient-to-r from-orange-500/25 to-orange-400/10 text-orange-100 ring-1 ring-orange-400/30'
+                  : 'text-slate-300 hover:bg-slate-900 hover:text-white'
               )}
             >
               <Icon className="h-5 w-5 flex-shrink-0" />
@@ -74,7 +79,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
           );
         })}
 
-        <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">ตั้งค่า</p>
+        <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">ตั้งค่า</p>
         {settingsItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -86,8 +91,8 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-brand-50 text-brand-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-gradient-to-r from-orange-500/25 to-orange-400/10 text-orange-100 ring-1 ring-orange-400/30'
+                  : 'text-slate-300 hover:bg-slate-900 hover:text-white'
               )}
             >
               <Icon className="h-5 w-5 flex-shrink-0" />

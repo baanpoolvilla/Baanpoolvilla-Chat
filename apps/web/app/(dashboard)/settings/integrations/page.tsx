@@ -2,15 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
+import PlatformBadge from '@/components/common/PlatformBadge';
+import type { Platform } from '@/types';
+
+const platforms: Platform[] = ['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK'];
 
 interface PlatformConfig {
   id: string;
-  platform: string;
+  platform: Platform;
   channelId: string;
   channelSecret: string;
   accessToken: string;
   isActive: boolean;
-  metadata: Record<string, unknown> | null;
+  metadata: {
+    oaName?: string;
+    oaUserId?: string;
+    oaBasicId?: string;
+    oaPictureUrl?: string;
+  } | null;
 }
 
 const platformLabels: Record<string, string> = {
@@ -65,7 +74,7 @@ export default function IntegrationsPage() {
           };
         });
         // Ensure all platforms have form data
-        ['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK'].forEach((p) => {
+        platforms.forEach((p) => {
           if (!fd[p]) {
             fd[p] = { channelId: '', channelSecret: '', accessToken: '' };
           }
@@ -86,6 +95,10 @@ export default function IntegrationsPage() {
       } else {
         await api.post('/api/settings/platforms', payload);
       }
+
+      const latest = await api.get('/api/settings/platforms');
+      setConfigs(latest.data.data || []);
+
       setMessage({ type: 'success', text: `บันทึก ${platformLabels[platform]} สำเร็จ` });
     } catch {
       setMessage({ type: 'error', text: `เกิดข้อผิดพลาดในการบันทึก ${platformLabels[platform]}` });
@@ -122,18 +135,42 @@ export default function IntegrationsPage() {
         </div>
       )}
 
-      {['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK'].map((platform) => (
+      {platforms.map((platform) => (
         <div key={platform} className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {platformLabels[platform]}
-            </h2>
-            {configs.find((c) => c.platform === platform)?.isActive && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                เชื่อมต่อแล้ว
-              </span>
-            )}
-          </div>
+          {(() => {
+            const currentConfig = configs.find((c) => c.platform === platform);
+            const lineMetadata = currentConfig?.metadata;
+
+            return (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <PlatformBadge platform={platform} />
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {platformLabels[platform]}
+                    </h2>
+                  </div>
+                  {currentConfig?.isActive && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                      เชื่อมต่อแล้ว
+                    </span>
+                  )}
+                </div>
+
+                {platform === 'LINE' && currentConfig?.isActive && (
+                  <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">LINE OA ที่เชื่อมต่อ</p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-900">
+                      {lineMetadata?.oaName || formData[platform]?.channelId || 'ไม่พบชื่อ OA'}
+                    </p>
+                    <p className="text-xs text-emerald-700">
+                      {lineMetadata?.oaBasicId || lineMetadata?.oaUserId || 'ยังไม่พบ Basic ID'}
+                    </p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           <div className="space-y-3">
             {platformFields[platform].map((field) => (

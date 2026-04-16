@@ -1,8 +1,9 @@
 'use client';
 
 import type { Conversation } from '@/types';
-import { cn, formatTimeAgo, truncate, getPlatformIcon } from '@/lib/utils';
+import { cn, formatTimeAgo, truncate } from '@/lib/utils';
 import TagBadge from './TagBadge';
+import PlatformBadge from '@/components/common/PlatformBadge';
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -34,7 +35,7 @@ export default function ConversationItem({ conversation, isActive, onClick }: Co
           className="absolute -bottom-0.5 -right-0.5 text-xs"
           title={platform}
         >
-          {getPlatformIcon(platform)}
+          <PlatformBadge platform={platform} compact showLabel={false} />
         </span>
       </div>
 

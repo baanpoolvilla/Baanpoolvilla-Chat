@@ -3,6 +3,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import api from '@/lib/api';
 import type { Tag, TagCategory } from '@/types';
+import { getTagTextColor, withAlpha } from '@/lib/utils';
 
 interface CategoryWithTags extends TagCategory {
   tags: Tag[];
@@ -168,7 +169,11 @@ export default function TagsPage() {
                   <span
                     key={tag.id}
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm group"
-                    style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                    style={{
+                      backgroundColor: tag.color,
+                      color: getTagTextColor(tag.color),
+                      border: `1px solid ${withAlpha(tag.color, 0.9)}`,
+                    }}
                   >
                     {tag.name}
                     <button

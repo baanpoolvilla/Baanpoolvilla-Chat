@@ -3,6 +3,17 @@ import crypto from 'crypto';
 import { logger } from '../lib/logger';
 import prisma from '../lib/prisma';
 
+interface RequestWithRawBody extends Request {
+  rawBody?: string;
+}
+
+function getRawBody(req: Request): string {
+  const candidate = (req as RequestWithRawBody).rawBody;
+  return typeof candidate === 'string' && candidate.length > 0
+    ? candidate
+    : JSON.stringify(req.body);
+}
+
 export function verifyLineSignature(req: Request, res: Response, next: NextFunction): void {
   // async wrapper — we need to await DB lookup
   (async () => {
@@ -29,7 +40,7 @@ export function verifyLineSignature(req: Request, res: Response, next: NextFunct
         return;
       }
 
-      const body = JSON.stringify(req.body);
+      const body = getRawBody(req);
       const hash = crypto
         .createHmac('SHA256', channelSecret)
         .update(body)
@@ -69,7 +80,7 @@ export function verifyFacebookSignature(req: Request, res: Response, next: NextF
       return;
     }
 
-    const body = JSON.stringify(req.body);
+    const body = getRawBody(req);
     const expectedSignature =
       'sha256=' +
       crypto.createHmac('sha256', appSecret).update(body).digest('hex');
@@ -106,7 +117,7 @@ export function verifyTikTokSignature(req: Request, res: Response, next: NextFun
       return;
     }
 
-    const body = JSON.stringify(req.body);
+    const body = getRawBody(req);
     const hash = crypto
       .createHmac('sha256', clientSecret)
       .update(body)

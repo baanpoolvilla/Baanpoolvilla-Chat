@@ -103,4 +103,22 @@ export class LineService {
       pictureUrl: response.data.pictureUrl,
     };
   }
+
+  static async getBotInfoByToken(accessToken: string): Promise<{
+    userId?: string;
+    displayName?: string;
+    basicId?: string;
+    pictureUrl?: string;
+  }> {
+    const response = await axios.get('https://api.line.me/v2/bot/info', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    return {
+      userId: response.data.userId,
+      displayName: response.data.displayName,
+      basicId: response.data.basicId,
+      pictureUrl: response.data.pictureUrl,
+    };
+  }
 }

@@ -27,7 +27,11 @@
     @apply border-gray-200;
   }
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply text-gray-900;
+    background:
+      radial-gradient(circle at 10% -20%, rgba(255, 153, 0, 0.22), transparent 40%),
+      radial-gradient(circle at 95% 0%, rgba(255, 196, 92, 0.3), transparent 35%),
+      linear-gradient(180deg, #fdfcf7 0%, #f5f7fb 45%, #f4f6fb 100%);
   }
 }
 
@@ -42,12 +46,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #c7cedb;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #98a3b8;
 }
 
 /* Message animations */

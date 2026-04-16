@@ -8,6 +8,10 @@ import routes from './routes';
 import { apiLimiter } from './middleware/rateLimit';
 import { startBroadcastWorker } from './jobs/broadcastWorker';
 
+interface RequestWithRawBody extends express.Request {
+  rawBody?: string;
+}
+
 // ─── Validate required env vars ──────────────────────────
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
 for (const envVar of requiredEnvVars) {
@@ -37,7 +41,12 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, _res, buf) => {
+    (req as RequestWithRawBody).rawBody = buf.toString('utf8');
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Rate limiting ──────────────────────────────────────

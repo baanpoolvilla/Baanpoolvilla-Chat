@@ -8,6 +8,7 @@ import MessageInput from './MessageInput';
 import type { Conversation } from '@/types';
 import { Bot, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
+import PlatformBadge from '@/components/common/PlatformBadge';
 
 interface ChatWindowProps {
   conversationId: string;
@@ -77,7 +78,7 @@ export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowP
             {conversation?.contact?.displayName || 'Loading...'}
           </h3>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">{conversation?.platform}</span>
+            {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}
             {conversation?.isBot && (
               <span className="flex items-center gap-1 text-xs text-purple-600">
                 <Bot className="h-3 w-3" /> Bot Active

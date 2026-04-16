@@ -36,15 +36,36 @@ export function getPlatformColor(platform: string): string {
   return colors[platform] || '#6B7280';
 }
 
-export function getPlatformIcon(platform: string): string {
-  const icons: Record<string, string> = {
-    LINE: '💚',
-    FACEBOOK: '🔵',
-    INSTAGRAM: '📸',
-    TIKTOK: '🎵',
-    MANUAL: '💬',
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const normalized = hex.replace('#', '').trim();
+  if (!/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(normalized)) {
+    return null;
+  }
+
+  const full = normalized.length === 3
+    ? normalized.split('').map((c) => c + c).join('')
+    : normalized;
+
+  const int = parseInt(full, 16);
+  return {
+    r: (int >> 16) & 255,
+    g: (int >> 8) & 255,
+    b: int & 255,
   };
-  return icons[platform] || '💬';
+}
+
+export function withAlpha(hex: string, alpha: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return `rgba(107, 114, 128, ${alpha})`;
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+}
+
+export function getTagTextColor(backgroundHex: string): '#111827' | '#ffffff' {
+  const rgb = hexToRgb(backgroundHex);
+  if (!rgb) return '#111827';
+
+  const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+  return luminance > 0.58 ? '#111827' : '#ffffff';
 }
 
 export function getPriorityColor(priority: string): string {

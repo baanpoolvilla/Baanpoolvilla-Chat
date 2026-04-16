@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { getTagTextColor, withAlpha } from '@/lib/utils';
 
 interface TagBadgeProps {
   name: string;
@@ -10,6 +11,8 @@ interface TagBadgeProps {
 }
 
 export default function TagBadge({ name, color, size = 'sm', onRemove }: TagBadgeProps) {
+  const textColor = getTagTextColor(color);
+
   return (
     <span
       className={cn(
@@ -17,14 +20,14 @@ export default function TagBadge({ name, color, size = 'sm', onRemove }: TagBadg
         size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'
       )}
       style={{
-        backgroundColor: `${color}20`,
-        color: color,
-        border: `1px solid ${color}40`,
+        backgroundColor: color,
+        color: textColor,
+        border: `1px solid ${withAlpha(color, 0.9)}`,
       }}
     >
       <span
         className="h-1.5 w-1.5 rounded-full"
-        style={{ backgroundColor: color }}
+        style={{ backgroundColor: withAlpha(textColor, 0.85) }}
       />
       {name}
       {onRemove && (

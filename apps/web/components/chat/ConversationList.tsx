@@ -17,15 +17,14 @@ const statusOptions: { value: ConversationStatus | ''; label: string }[] = [
   { value: 'OPEN', label: 'Open' },
   { value: 'PENDING', label: 'Pending' },
   { value: 'RESOLVED', label: 'Resolved' },
-  { value: 'SNOOZED', label: 'Snoozed' },
 ];
 
 const platformOptions: { value: Platform | ''; label: string }[] = [
   { value: '', label: 'All Platforms' },
-  { value: 'LINE', label: '💚 LINE' },
-  { value: 'FACEBOOK', label: '🔵 Facebook' },
-  { value: 'INSTAGRAM', label: '📸 Instagram' },
-  { value: 'TIKTOK', label: '🎵 TikTok' },
+  { value: 'LINE', label: 'LINE' },
+  { value: 'FACEBOOK', label: 'Facebook' },
+  { value: 'INSTAGRAM', label: 'Instagram' },
+  { value: 'TIKTOK', label: 'TikTok' },
 ];
 
 export default function ConversationList({ activeId, onSelect }: ConversationListProps) {

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import type { Contact } from '@/types';
-import { getPlatformIcon, getPlatformColor, formatTimeAgo } from '@/lib/utils';
+import { formatTimeAgo } from '@/lib/utils';
+import PlatformBadge from '@/components/common/PlatformBadge';
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -91,12 +92,7 @@ export default function ContactsPage() {
                   <td className="px-6 py-4">
                     <div className="flex gap-1">
                       {contact.platformLinks?.map((pc) => (
-                        <span
-                          key={pc.id}
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white ${getPlatformColor(pc.platform)}`}
-                        >
-                          {getPlatformIcon(pc.platform)} {pc.platform}
-                        </span>
+                        <PlatformBadge key={pc.id} platform={pc.platform} compact />
                       ))}
                     </div>
                   </td>
