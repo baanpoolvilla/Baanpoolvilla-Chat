@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id           String                   @id @default(cuid())
+  email        String                   @unique
+  passwordHash String
+  name         String
+  avatar       String?
+  role         AdminRole                @default(AGENT)
+  isOnline     Boolean                  @default(false)
+  lastSeenAt   DateTime?
+  createdAt    DateTime                 @default(now())
+  messages     Message[]
+  assignments  ConversationAssignment[]
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  AGENT
+}
+
+model Contact {
+  id            String            @id @default(cuid())
+  displayName   String
+  avatarUrl     String?
+  phone         String?
+  email         String?
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  platformLinks PlatformContact[]
+  conversations Conversation[]
+  tags          ContactTag[]
+}
+
+model PlatformContact {
+  id          String   @id @default(cuid())
+  contactId   String
+  platform    Platform
+  platformUid String
+  metadata    Json?
+  contact     Contact  @relation(fields: [contactId], references: [id])
+
+  @@unique([platform, platformUid])
+}
+
+model TagCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+  tags      Tag[]
+}
+
+model Tag {
+  id            String            @id @default(cuid())
+  name          String
+  color         String            @default("#6366f1")
+  categoryId    String?
+  createdAt     DateTime          @default(now())
+  category      TagCategory?      @relation(fields: [categoryId], references: [id])
+  conversations ConversationTag[]
+  contacts      ContactTag[]
+
+  @@unique([name, categoryId])
+}
+
+model ConversationTag {
+  conversationId String
+  tagId          String
+  addedAt        DateTime     @default(now())
+  addedByAdminId String?
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  tag            Tag          @relation(fields: [tagId], references: [id])
+
+  @@id([conversationId, tagId])
+}
+
+model ContactTag {
+  contactId String
+  tagId     String
+  contact   Contact @relation(fields: [contactId], references: [id])
+  tag       Tag     @relation(fields: [tagId], references: [id])
+
+  @@id([contactId, tagId])
+}
+
+model Conversation {
+  id          String                   @id @default(cuid())
+  contactId   String
+  platform    Platform
+  channelId   String
+  status      ConversationStatus       @default(OPEN)
+  isBot       Boolean                  @default(true)
+  priority    Priority                 @default(NORMAL)
+  lastMessage String?
+  lastMsgAt   DateTime?
+  unreadCount Int                      @default(0)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  contact     Contact                  @relation(fields: [contactId], references: [id])
+  messages    Message[]
+  tags        ConversationTag[]
+  assignments ConversationAssignment[]
+  notes       ConversationNote[]
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  SNOOZED
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model ConversationAssignment {
+  id             String       @id @default(cuid())
+  conversationId String
+  adminId        String
+  assignedAt     DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  admin          Admin        @relation(fields: [adminId], references: [id])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderType     SenderType
+  adminId        String?
+  content        String
+  contentType    ContentType  @default(TEXT)
+  mediaUrl       String?
+  metadata       Json?
+  platformMsgId  String?
+  isRead         Boolean      @default(false)
+  sentAt         DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  admin          Admin?       @relation(fields: [adminId], references: [id])
+
+  @@index([conversationId, sentAt])
+}
+
+enum SenderType {
+  CUSTOMER
+  ADMIN
+  BOT
+  SYSTEM
+}
+
+enum ContentType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+  STICKER
+  LOCATION
+  TEMPLATE
+}
+
+model Broadcast {
+  id          String          @id @default(cuid())
+  name        String
+  content     String
+  contentType ContentType     @default(TEXT)
+  mediaUrl    String?
+  platforms   Platform[]
+  targetType  BroadcastTarget
+  tagFilter   Json?
+  status      BroadcastStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  totalCount  Int             @default(0)
+  sentCount   Int             @default(0)
+  failCount   Int             @default(0)
+  createdBy   String
+  createdAt   DateTime        @default(now())
+  logs        BroadcastLog[]
+}
+
+model BroadcastLog {
+  id          String    @id @default(cuid())
+  broadcastId String
+  contactId   String
+  platform    Platform
+  status      String
+  error       String?
+  sentAt      DateTime  @default(now())
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id])
+}
+
+enum BroadcastTarget {
+  ALL
+  BY_TAG
+  BY_PLATFORM
+  CUSTOM
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  COMPLETED
+  FAILED
+}
+
+model PlatformConfig {
+  id        String   @id @default(cuid())
+  platform  Platform @unique
+  config    Json
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+model AiBotConfig {
+  id           String   @id @default(cuid())
+  provider     String
+  model        String
+  apiKey       String
+  systemPrompt String
+  isActive     Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+}
+
+model ConversationNote {
+  id             String       @id @default(cuid())
+  conversationId String
+  content        String
+  createdBy      String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+}
+
+enum Platform {
+  LINE
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+  MANUAL
+}

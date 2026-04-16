@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Production compose — รันบน Windows Server 192.168.0.124
+# Postgres และ Redis ต้องรันอยู่แล้ว (expose port 5432 / 6379 บน host)
+#
+# ก่อนรัน: สร้างไฟล์ apps/server/.env.production บน Server
+# แล้วใส่ CLOUDFLARE_TUNNEL_TOKEN= ใน .env.production ด้วย
+#
+# สั่งรัน: docker compose -f docker-compose.server.yml up -d --build
+# ─────────────────────────────────────────────────────────────────────────────
+version: '3.9'
+
+services:
+  # ── Express API ─────────────────────────────────────────────────────────────
+  api:
+    build: ./apps/server
+    restart: unless-stopped
+    env_file: ./apps/server/.env.production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3001:3001"
+    networks:
+      - chat-net
+
+  # ── Cloudflare Named Tunnel — URL คงที่ ไม่เปลี่ยน ────────────────────────
+  # CLOUDFLARE_TUNNEL_TOKEN ได้จาก Zero Trust > Networks > Tunnels > สร้าง tunnel
+  # Public hostname ที่ตั้งใน dashboard: chat-api.poolvillapattayaparty.com → http://api:3001
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - api
+    networks:
+      - chat-net
+
+networks:
+  chat-net:
+    driver: bridge
