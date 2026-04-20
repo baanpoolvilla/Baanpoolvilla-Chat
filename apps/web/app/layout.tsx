@@ -8,8 +8,8 @@ const sarabun = Sarabun({
 });
 
 export const metadata: Metadata = {
-  title: 'Unified Chat Management',
-  description: 'Multi-platform chat management system',
+  title: 'Baanpool-chat Management',
+  description: 'Baanpool-chat multi-platform chat management system',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

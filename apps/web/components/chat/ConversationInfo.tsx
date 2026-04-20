@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import type { Conversation, ConversationNote } from '@/types';
 import TagSelector from './TagSelector';
-import BotToggle from './BotToggle';
 import {
   Phone, Mail, Plus,
 } from 'lucide-react';
@@ -67,10 +66,6 @@ export default function ConversationInfo({ conversationId, onClose }: Conversati
     }
   };
 
-  const handleBotToggle = (_isBot: boolean) => {
-    fetchConversation();
-  };
-
   if (!conversation) {
     return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600" /></div>;
   }
@@ -109,16 +104,6 @@ export default function ConversationInfo({ conversationId, onClose }: Conversati
             </div>
           )}
         </div>
-      </div>
-
-      {/* Bot Toggle */}
-      <div className="border-b border-gray-200 p-4">
-        <h4 className="mb-2 text-xs font-semibold uppercase text-gray-400">AI Bot</h4>
-        <BotToggle
-          conversationId={conversation.id}
-          isBot={conversation.isBot}
-          onToggle={handleBotToggle}
-        />
       </div>
 
       {/* Tags */}

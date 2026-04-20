@@ -4,20 +4,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
+  LayoutDashboard,
   MessageSquare,
-  Users,
   Send,
   Tag,
   BarChart3,
-  Bot,
   Shield,
   Link2,
   X,
 } from 'lucide-react';
 
 const navItems = [
+  { href: '/dashboard', label: 'แดชบอร์ด', icon: LayoutDashboard },
   { href: '/conversations', label: 'สนทนา', icon: MessageSquare },
-  { href: '/contacts', label: 'ผู้ติดต่อ', icon: Users },
   { href: '/broadcast', label: 'ประกาศ', icon: Send },
   { href: '/tags', label: 'แท็ก', icon: Tag },
   { href: '/analytics', label: 'สถิติ', icon: BarChart3 },
@@ -25,7 +24,6 @@ const navItems = [
 
 const settingsItems = [
   { href: '/settings/integrations', label: 'เชื่อมต่อระบบ', icon: Link2 },
-  { href: '/settings/ai-bot', label: 'AI Bot', icon: Bot },
   { href: '/settings/admins', label: 'ผู้ดูแล', icon: Shield },
 ];
 
@@ -41,11 +39,11 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
     <aside className="flex h-full w-64 flex-shrink-0 flex-col border-r border-slate-900/60 bg-slate-950 text-slate-100">
       <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-900/30">
-            <MessageSquare className="h-5 w-5" />
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-slate-900 ring-1 ring-slate-700/80">
+            <img src="/baanpool-mark.svg" alt="Baanpool-chat" className="h-9 w-9 object-cover" />
           </div>
           <div>
-            <span className="block text-sm font-semibold leading-tight text-orange-50">Unified Chat</span>
+            <span className="block text-sm font-semibold leading-tight text-orange-50">Baanpool-chat</span>
             <span className="block text-[11px] text-slate-400">Management Console</span>
           </div>
         </div>

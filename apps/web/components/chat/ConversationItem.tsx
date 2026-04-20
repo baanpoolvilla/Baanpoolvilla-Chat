@@ -12,7 +12,7 @@ interface ConversationItemProps {
 }
 
 export default function ConversationItem({ conversation, isActive, onClick }: ConversationItemProps) {
-  const { contact, platform, lastMessage, lastMsgAt, unreadCount, tags, assignments, priority, isBot } = conversation;
+  const { contact, platform, lastMessage, lastMsgAt, unreadCount, tags, assignments, priority } = conversation;
 
   return (
     <button
@@ -52,7 +52,6 @@ export default function ConversationItem({ conversation, isActive, onClick }: Co
 
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <p className="truncate text-xs text-gray-500">
-            {isBot && <span className="text-purple-500 font-medium">🤖 </span>}
             {lastMessage ? truncate(lastMessage, 50) : 'No messages yet'}
           </p>
           <div className="flex items-center gap-1.5 flex-shrink-0">

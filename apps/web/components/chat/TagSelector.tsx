@@ -21,11 +21,14 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
     const fetchTags = async () => {
       try {
         const [catRes, tagRes] = await Promise.all([
-          api.get<TagCategory[]>('/tags/categories'),
-          api.get<Tag[]>('/tags'),
+          api.get('/api/tags/categories'),
+          api.get('/api/tags'),
         ]);
-        setCategories(catRes.data);
-        setAllTags(tagRes.data);
+        const categoryData = Array.isArray(catRes.data) ? catRes.data : (catRes.data.data || []);
+        const tagData = Array.isArray(tagRes.data) ? tagRes.data : (tagRes.data.data || []);
+
+        setCategories(categoryData as TagCategory[]);
+        setAllTags(tagData as Tag[]);
       } catch (error) {
         console.error('Failed to fetch tags:', error);
       }

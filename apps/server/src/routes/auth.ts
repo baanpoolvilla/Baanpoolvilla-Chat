@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import type { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
@@ -17,6 +18,11 @@ const loginSchema = z.object({
 const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
+
+const accessTokenExpiresIn: SignOptions['expiresIn'] =
+  (process.env.JWT_EXPIRES_IN as SignOptions['expiresIn']) || '1h';
+const refreshTokenExpiresIn: SignOptions['expiresIn'] =
+  (process.env.JWT_REFRESH_EXPIRES_IN as SignOptions['expiresIn']) || '7d';
 
 router.post('/login', loginLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -43,13 +49,13 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
     const accessToken = jwt.sign(
       { adminId: admin.id, email: admin.email, role: admin.role },
       jwtSecret,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
+      { expiresIn: accessTokenExpiresIn }
     );
 
     const refreshToken = jwt.sign(
       { adminId: admin.id, type: 'refresh' },
       jwtRefreshSecret,
-      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+      { expiresIn: refreshTokenExpiresIn }
     );
 
     await prisma.admin.update({
@@ -108,7 +114,7 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
     const accessToken = jwt.sign(
       { adminId: admin.id, email: admin.email, role: admin.role },
       jwtSecret,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
+      { expiresIn: accessTokenExpiresIn }
     );
 
     res.json({ accessToken });

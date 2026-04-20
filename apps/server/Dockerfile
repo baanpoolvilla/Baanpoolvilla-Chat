@@ -1,12 +1,15 @@
 FROM node:20-alpine AS base
 
+# Prisma requires OpenSSL at install/generate time.
+RUN apk add --no-cache openssl
+
 # Install dependencies
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && \
+RUN npm ci --only=production --ignore-scripts && \
     cp -R node_modules /tmp/prod_node_modules && \
-    npm ci
+    npm ci --ignore-scripts
 
 # Generate Prisma client
 FROM base AS prisma
@@ -37,7 +40,10 @@ COPY --from=deps --chown=expressjs:nodejs /tmp/prod_node_modules ./node_modules
 COPY --chown=expressjs:nodejs prisma ./prisma
 COPY --chown=expressjs:nodejs package.json ./
 
+# Winston writes log files under /app/logs in production.
+RUN mkdir -p /app/logs && chown -R expressjs:nodejs /app/logs
+
 USER expressjs
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+CMD ["node", "dist/index.js"]

@@ -13,24 +13,31 @@ services:
   # ── Express API ─────────────────────────────────────────────────────────────
   api:
     build: ./apps/server
+    container_name: chat-api
+    hostname: chat-api
     restart: unless-stopped
     env_file: ./apps/server/.env.production
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    expose:
+      - "3001"
     ports:
-      - "3001:3001"
+      - "3002:3001"
     networks:
-      - chat-net
+      chat-net:
+        aliases:
+          - chat-api
+          - api
 
   # ── Cloudflare Named Tunnel — URL คงที่ ไม่เปลี่ยน ────────────────────────
   # CLOUDFLARE_TUNNEL_TOKEN ได้จาก Zero Trust > Networks > Tunnels > สร้าง tunnel
   # Public hostname ที่ตั้งใน dashboard: chat-api.poolvillapattayaparty.com → http://api:3001
   cloudflared:
     image: cloudflare/cloudflared:latest
+    container_name: chat-cloudflared
     restart: unless-stopped
+    env_file: ./apps/server/.env.production
     command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       - api
     networks:

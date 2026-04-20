@@ -2,11 +2,10 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { useMessages } from '@/hooks/useMessages';
-import { useSocket } from '@/hooks/useSocket';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import type { Conversation } from '@/types';
-import { Bot, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
 
@@ -18,10 +17,8 @@ interface ChatWindowProps {
 export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowProps) {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const { messages, isLoading, hasMore, loadMore, sendMessage } = useMessages(conversationId);
-  const { on } = useSocket();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [botTyping, setBotTyping] = useState(false);
 
   useEffect(() => {
     api.get(`/api/conversations/${conversationId}`).then((res) => {
@@ -32,16 +29,6 @@ export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowP
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  useEffect(() => {
-    const off = on('bot:typing', (data) => {
-      if (data.conversationId === conversationId) {
-        setBotTyping(true);
-        setTimeout(() => setBotTyping(false), 10000);
-      }
-    });
-    return () => { off(); };
-  }, [conversationId, on]);
 
   useEffect(() => {
     api.post(`/api/conversations/${conversationId}/read`).catch(() => {});
@@ -79,11 +66,6 @@ export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowP
           </h3>
           <div className="flex items-center gap-2">
             {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}
-            {conversation?.isBot && (
-              <span className="flex items-center gap-1 text-xs text-purple-600">
-                <Bot className="h-3 w-3" /> Bot Active
-              </span>
-            )}
           </div>
         </div>
         {onToggleInfo && (
@@ -116,12 +98,6 @@ export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowP
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />
             ))}
-            {botTyping && (
-              <div className="flex items-center gap-2 text-purple-500">
-                <Bot className="h-4 w-4 animate-pulse" />
-                <span className="text-xs">Bot is typing...</span>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         )}

@@ -1,4 +1,4 @@
-import { Platform, SenderType, ContentType } from '@prisma/client';
+import { Platform, SenderType, ContentType, Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { getSocketIO } from '../lib/socket';
 import { logger } from '../lib/logger';
@@ -109,7 +109,7 @@ export class MessageService {
             content: incoming.content,
             contentType: incoming.contentType,
             mediaUrl: incoming.mediaUrl,
-            metadata: incoming.metadata as Record<string, unknown> | undefined,
+            metadata: incoming.metadata as Prisma.InputJsonValue | undefined,
             platformMsgId: incoming.platformMsgId,
           },
         });
