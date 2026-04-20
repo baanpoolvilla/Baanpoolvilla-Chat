@@ -64,7 +64,7 @@ export default function BroadcastPage() {
         >
           ← กลับ
         </button>
-        <BroadcastComposer />
+        <BroadcastComposer onDone={() => setView('list')} />
       </div>
     );
   }

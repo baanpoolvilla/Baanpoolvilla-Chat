@@ -116,9 +116,22 @@ export class BroadcastService {
       case BroadcastTarget.BY_TAG: {
         const tagFilter = broadcast.tagFilter as { tagIds?: string[] } | null;
         if (tagFilter?.tagIds) {
-          where.tags = {
-            some: { tagId: { in: tagFilter.tagIds } },
-          };
+          where.OR = [
+            {
+              tags: {
+                some: { tagId: { in: tagFilter.tagIds } },
+              },
+            },
+            {
+              conversations: {
+                some: {
+                  tags: {
+                    some: { tagId: { in: tagFilter.tagIds } },
+                  },
+                },
+              },
+            },
+          ];
         }
         where.platformLinks = {
           some: { platform: { in: broadcast.platforms } },

@@ -4,10 +4,15 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import TargetSelector from './TargetSelector';
+import axios from 'axios';
 
 const ALL_PLATFORMS = ['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK'];
 
-export default function BroadcastComposer() {
+interface BroadcastComposerProps {
+  onDone?: () => void;
+}
+
+export default function BroadcastComposer({ onDone }: BroadcastComposerProps) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
@@ -100,11 +105,17 @@ export default function BroadcastComposer() {
         await api.post(`/api/broadcasts/${broadcastId}/send`);
       }
 
-      router.push('/broadcast');
+      if (onDone) {
+        onDone();
+      } else {
+        router.push('/broadcast');
+        router.refresh();
+      }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
-      setError(message);
+      const errorMessage = axios.isAxiosError(err)
+        ? (err.response?.data?.error || err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่')
+        : (err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+      setError(errorMessage);
     } finally {
       setSending(false);
     }
