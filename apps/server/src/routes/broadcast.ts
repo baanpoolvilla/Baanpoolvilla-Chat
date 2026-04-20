@@ -8,6 +8,30 @@ const router = Router();
 
 router.use(authMiddleware());
 
+router.post('/estimate', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const schema = z.object({
+      targetType: z.enum(['ALL', 'BY_TAG', 'BY_PLATFORM', 'CUSTOM']),
+      platforms: z.array(z.enum(['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'MANUAL'])).optional(),
+      tagFilter: z.array(z.string()).optional(),
+    });
+    const data = schema.parse(req.body);
+    const contacts = await BroadcastService.getTargetContacts({
+      targetType: data.targetType as import('@prisma/client').BroadcastTarget,
+      platforms: (data.platforms ?? ['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK']) as import('@prisma/client').Platform[],
+      tagFilter: data.tagFilter ? { tagIds: data.tagFilter } : null,
+    });
+    res.json({ count: contacts.length });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    logger.error('Estimate broadcast error', { error });
+    res.status(500).json({ error: 'Failed to estimate broadcast' });
+  }
+});
+
 router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string, 10) || 1;

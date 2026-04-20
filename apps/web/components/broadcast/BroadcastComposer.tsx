@@ -27,11 +27,13 @@ export default function BroadcastComposer({ onDone }: BroadcastComposerProps) {
 
   const fetchEstimate = useCallback(async () => {
     try {
-      const params: Record<string, unknown> = { target };
-      if (target === 'BY_TAG') params.tagIds = selectedTagIds;
-      if (target === 'BY_PLATFORM') params.platforms = selectedPlatforms;
-      const res = await api.post('/api/broadcasts/estimate', params);
-      setEstimatedCount(res.data.data?.count);
+      const payload: Record<string, unknown> = {
+        targetType: target,
+        platforms: target === 'BY_PLATFORM' ? selectedPlatforms : ALL_PLATFORMS,
+      };
+      if (target === 'BY_TAG') payload.tagFilter = selectedTagIds;
+      const res = await api.post('/api/broadcasts/estimate', payload);
+      setEstimatedCount(res.data?.count ?? 0);
     } catch {
       setEstimatedCount(undefined);
     }
@@ -43,8 +45,8 @@ export default function BroadcastComposer({ onDone }: BroadcastComposerProps) {
     setSelectedPlatforms(newTarget === 'BY_PLATFORM' ? [] : ALL_PLATFORMS);
     setEstimatedCount(undefined);
     if (newTarget === 'ALL') {
-      api.post('/api/broadcasts/estimate', { target: 'ALL' }).then((res) => {
-        setEstimatedCount(res.data.data?.count);
+      api.post('/api/broadcasts/estimate', { targetType: 'ALL', platforms: ALL_PLATFORMS }).then((res) => {
+        setEstimatedCount(res.data?.count ?? 0);
       }).catch(() => {});
     }
   };
@@ -80,6 +82,10 @@ export default function BroadcastComposer({ onDone }: BroadcastComposerProps) {
     }
     if (target === 'BY_PLATFORM' && selectedPlatforms.length === 0) {
       setError('กรุณาเลือกอย่างน้อย 1 แพลตฟอร์ม');
+      return;
+    }
+    if (estimatedCount === 0) {
+      setError('ไม่พบผู้รับที่ตรงกับเงื่อนไข กรุณาแท็กบทสนทนาก่อนส่ง Broadcast');
       return;
     }
 

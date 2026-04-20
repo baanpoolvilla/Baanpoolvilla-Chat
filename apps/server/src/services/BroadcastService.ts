@@ -115,34 +115,38 @@ export class BroadcastService {
         break;
       case BroadcastTarget.BY_TAG: {
         const tagFilter = broadcast.tagFilter as { tagIds?: string[] } | null;
-        if (tagFilter?.tagIds) {
-          where.OR = [
+        const tagIds = tagFilter?.tagIds ?? [];
+        logger.info('BY_TAG filter', { tagFilter, tagIds, platforms: broadcast.platforms });
+
+        if (tagIds.length > 0) {
+          where.AND = [
             {
-              tags: {
-                some: { tagId: { in: tagFilter.tagIds } },
-              },
+              OR: [
+                { tags: { some: { tagId: { in: tagIds } } } },
+                { conversations: { some: { tags: { some: { tagId: { in: tagIds } } } } } },
+              ],
             },
             {
-              conversations: {
-                some: {
-                  tags: {
-                    some: { tagId: { in: tagFilter.tagIds } },
-                  },
-                },
-              },
+              platformLinks: { some: { platform: { in: broadcast.platforms } } },
             },
           ];
+        } else {
+          // No tags specified — match nothing to avoid mass-send accident
+          where.id = '__no_match__';
         }
-        where.platformLinks = {
-          some: { platform: { in: broadcast.platforms } },
-        };
         break;
       }
     }
 
-    return prisma.contact.findMany({
+    const contacts = await prisma.contact.findMany({
       where,
       include: { platformLinks: true },
     });
+    logger.info('getTargetContacts result', {
+      targetType: broadcast.targetType,
+      platforms: broadcast.platforms,
+      contactCount: contacts.length,
+    });
+    return contacts;
   }
 }

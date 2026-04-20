@@ -12,6 +12,7 @@ interface Broadcast {
   content: string;
   targetType: string;
   status: string;
+  totalCount: number;
   sentCount: number;
   failCount: number;
   scheduledAt: string | null;
@@ -106,6 +107,7 @@ export default function BroadcastPage() {
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">ชื่อ</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">กลุ่มเป้าหมาย</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">ผู้รับ</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">ส่งสำเร็จ</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">ล้มเหลว</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">สร้างเมื่อ</th>
@@ -122,6 +124,11 @@ export default function BroadcastPage() {
                     {b.targetType === 'ALL' ? 'ทั้งหมด' : b.targetType === 'BY_TAG' ? 'ตามแท็ก' : 'ตามแพลตฟอร์ม'}
                   </td>
                   <td className="px-6 py-4">{getStatusBadge(b.status)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700 font-medium">
+                    {b.totalCount > 0 ? b.totalCount : (
+                      <span className="text-yellow-600">0 (ไม่พบผู้รับ)</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-sm text-green-600 font-medium">{b.sentCount}</td>
                   <td className="px-6 py-4 text-sm text-red-600 font-medium">{b.failCount}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{formatTimeAgo(b.createdAt)}</td>

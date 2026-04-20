@@ -145,10 +145,12 @@ export default function TargetSelector({
       )}
 
       {estimatedCount !== undefined && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-sm text-blue-700">
-            จำนวนผู้รับโดยประมาณ:{' '}
-            <span className="font-bold">{estimatedCount.toLocaleString()}</span> คน
+        <div className={`border rounded-lg p-3 ${estimatedCount === 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200'}`}>
+          <p className={`text-sm ${estimatedCount === 0 ? 'text-yellow-700' : 'text-blue-700'}`}>
+            {estimatedCount === 0
+              ? 'ไม่พบผู้รับที่ตรงกับเงื่อนไข กรุณาตรวจสอบว่าได้แท็กบทสนทนาแล้ว'
+              : <>จำนวนผู้รับโดยประมาณ: <span className="font-bold">{estimatedCount.toLocaleString()}</span> คน</>
+            }
           </p>
         </div>
       )}
