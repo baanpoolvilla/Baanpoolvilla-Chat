@@ -46,7 +46,7 @@ export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowP
   };
 
   return (
-    <div className="flex flex-1 flex-col bg-gray-50">
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-gray-50">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-gray-200 bg-white px-6 py-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-medium">
@@ -79,7 +79,7 @@ export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowP
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-6 py-4"
+        className="min-h-0 flex-1 overflow-y-auto px-6 py-4"
       >
         {isLoading && messages.length === 0 ? (
           <div className="flex items-center justify-center py-12">

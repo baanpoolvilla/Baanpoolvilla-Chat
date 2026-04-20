@@ -38,7 +38,7 @@ export default function ConversationList({ activeId, onSelect }: ConversationLis
   };
 
   return (
-    <div className="flex h-full flex-col border-r border-gray-200 bg-white" style={{ width: 320 }}>
+    <div className="flex h-full min-h-0 w-full flex-col border-r border-gray-200 bg-white">
       {/* Header */}
       <div className="border-b border-gray-200 p-4">
         <div className="flex items-center justify-between mb-3">

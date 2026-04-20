@@ -19,9 +19,9 @@ export default function ConversationDetailPage() {
   };
 
   return (
-    <div className="h-full flex">
+    <div className="flex h-full min-h-0">
       {/* Conversation List */}
-      <div className="w-80 border-r border-gray-200 bg-white flex-shrink-0 hidden lg:block">
+      <div className="hidden w-80 min-h-0 flex-shrink-0 border-r border-gray-200 bg-white lg:block">
         <ConversationList
           activeId={selectedId}
           onSelect={handleSelect}
@@ -29,7 +29,7 @@ export default function ConversationDetailPage() {
       </div>
 
       {/* Chat Window */}
-      <div className="flex-1 min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1">
         <ChatWindow
           conversationId={selectedId}
           onToggleInfo={() => setShowInfo(!showInfo)}
@@ -38,7 +38,7 @@ export default function ConversationDetailPage() {
 
       {/* Info Panel */}
       {showInfo && (
-        <div className="w-80 border-l border-gray-200 bg-white flex-shrink-0 hidden xl:block overflow-y-auto">
+        <div className="hidden w-80 min-h-0 flex-shrink-0 overflow-y-auto border-l border-gray-200 bg-white xl:block">
           <ConversationInfo
             conversationId={selectedId}
             onClose={() => setShowInfo(false)}

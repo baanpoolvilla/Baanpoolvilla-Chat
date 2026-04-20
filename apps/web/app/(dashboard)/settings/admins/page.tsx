@@ -3,14 +3,15 @@
 import { useState, useEffect, FormEvent } from 'react';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
+import axios from 'axios';
 
 interface Admin {
   id: string;
   email: string;
   name: string;
   role: string;
-  avatarUrl: string | null;
-  isActive: boolean;
+  avatar: string | null;
+  isOnline: boolean;
   createdAt: string;
 }
 
@@ -32,7 +33,7 @@ export default function AdminsPage() {
     setLoading(true);
     api
       .get('/api/admins')
-      .then((res) => setAdmins(res.data.data || []))
+      .then((res) => setAdmins(Array.isArray(res.data) ? res.data : (res.data.data || [])))
       .finally(() => setLoading(false));
   };
 
@@ -58,17 +59,13 @@ export default function AdminsPage() {
       setNewRole('AGENT');
       fetchAdmins();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'เกิดข้อผิดพลาด';
+      const message = axios.isAxiosError(err)
+        ? (err.response?.data?.error || err.message || 'เกิดข้อผิดพลาด')
+        : (err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
       setError(message);
     } finally {
       setCreating(false);
     }
-  };
-
-  const handleToggleActive = async (admin: Admin) => {
-    await api.put(`/api/admins/${admin.id}`, { isActive: !admin.isActive });
-    fetchAdmins();
   };
 
   const handleDelete = async (admin: Admin) => {
@@ -223,19 +220,13 @@ export default function AdminsPage() {
                   <td className="px-6 py-4 text-sm text-gray-500">{admin.email}</td>
                   <td className="px-6 py-4">{getRoleBadge(admin.role)}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${admin.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {admin.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${admin.isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {admin.isOnline ? 'ออนไลน์' : 'ออฟไลน์'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     {currentAdmin?.role === 'SUPER_ADMIN' && admin.id !== currentAdmin?.id && (
                       <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => handleToggleActive(admin)}
-                          className="text-xs text-gray-500 hover:text-gray-700"
-                        >
-                          {admin.isActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
-                        </button>
                         <button
                           onClick={() => handleDelete(admin)}
                           className="text-xs text-red-500 hover:text-red-700"
