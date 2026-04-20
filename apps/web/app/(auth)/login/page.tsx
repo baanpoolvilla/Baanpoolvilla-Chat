@@ -34,9 +34,9 @@ export default function LoginPage() {
       <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
         <div className="text-center mb-8">
           <div className="mx-auto mb-4 h-16 w-16 overflow-hidden rounded-2xl ring-1 ring-slate-200">
-            <img src="/baanpool-mark.svg" alt="Baanpool-chat" className="h-16 w-16 object-cover" />
+            <img src="/logo.png" alt="Baanpool-Chat" className="h-16 w-16 object-cover" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Baanpool-chat</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Baanpool-Chat</h1>
           <p className="text-sm text-gray-500 mt-1">ระบบจัดการแชทรวมศูนย์</p>
         </div>
 
@@ -89,7 +89,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-xs text-gray-400 text-center mt-6">
-          Baanpool-chat Management Console v1.0
+          Baanpool-Chat Management Console v1.0
         </p>
       </div>
     </div>
