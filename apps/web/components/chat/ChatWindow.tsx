@@ -96,7 +96,13 @@ export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowP
               </button>
             )}
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                customerName={conversation?.contact?.displayName}
+                customerAvatarUrl={conversation?.contact?.avatarUrl}
+                customerPlatform={conversation?.platform}
+              />
             ))}
             <div ref={messagesEndRef} />
           </div>

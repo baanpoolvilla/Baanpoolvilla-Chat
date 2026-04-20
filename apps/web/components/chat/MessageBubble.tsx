@@ -1,19 +1,30 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import type { Message } from '@/types';
+import type { Message, Platform } from '@/types';
 import { format } from 'date-fns';
 import { Bot, Download } from 'lucide-react';
+import PlatformBadge from '@/components/common/PlatformBadge';
 
 interface MessageBubbleProps {
   message: Message;
+  customerName?: string;
+  customerAvatarUrl?: string;
+  customerPlatform?: Platform;
 }
 
-export default function MessageBubble({ message }: MessageBubbleProps) {
+export default function MessageBubble({
+  message,
+  customerName,
+  customerAvatarUrl,
+  customerPlatform,
+}: MessageBubbleProps) {
   const isCustomer = message.senderType === 'CUSTOMER';
   const isBot = message.senderType === 'BOT';
   const isSystem = message.senderType === 'SYSTEM';
   const isAdmin = message.senderType === 'ADMIN';
+  const fallbackCustomerName = customerName || 'Customer';
+  const fallbackInitial = fallbackCustomerName.charAt(0).toUpperCase();
 
   if (isSystem) {
     return (
@@ -34,7 +45,11 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     >
       {isCustomer && (
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium">
-          C
+          {customerAvatarUrl ? (
+            <img src={customerAvatarUrl} alt={fallbackCustomerName} className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            fallbackInitial
+          )}
         </div>
       )}
 
@@ -52,7 +67,10 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           isCustomer ? 'text-gray-400' : isBot ? 'text-purple-400' : 'text-brand-200'
         )}>
           {isBot && <Bot className="h-3 w-3" />}
-          {isBot ? 'AI Bot' : isAdmin ? message.admin?.name || 'Admin' : 'Customer'}
+          {isBot ? 'AI Bot' : isAdmin ? message.admin?.name || 'Admin' : fallbackCustomerName}
+          {isCustomer && customerPlatform && (
+            <PlatformBadge platform={customerPlatform} compact showLabel={false} className="ml-1" />
+          )}
         </div>
 
         {/* Content */}
