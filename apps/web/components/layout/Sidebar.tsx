@@ -8,7 +8,6 @@ import {
   MessageSquare,
   Send,
   Tag,
-  BarChart3,
   Shield,
   Link2,
   X,
@@ -19,7 +18,6 @@ const navItems = [
   { href: '/conversations', label: 'สนทนา', icon: MessageSquare },
   { href: '/broadcast', label: 'ประกาศ', icon: Send },
   { href: '/tags', label: 'แท็ก', icon: Tag },
-  { href: '/analytics', label: 'สถิติ', icon: BarChart3 },
 ];
 
 const settingsItems = [
@@ -37,15 +35,9 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
 
   const inner = (
     <aside className="flex h-full w-64 flex-shrink-0 flex-col border-r border-slate-900/60 bg-slate-950 text-slate-100">
-      <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-slate-900 ring-1 ring-slate-700/80">
-            <img src="/baanpool-mark.svg" alt="Baanpool-chat" className="h-9 w-9 object-cover" />
-          </div>
-          <div>
-            <span className="block text-sm font-semibold leading-tight text-orange-50">Baanpool-chat</span>
-            <span className="block text-[11px] text-slate-400">Management Console</span>
-          </div>
+      <div className="flex h-16 items-center justify-between border-b border-slate-800 px-3">
+        <div className="flex items-center">
+          <img src="/baanpool-logo.svg" alt="Baanpoolvilla.com" className="h-10 w-auto object-contain" />
         </div>
         {onClose && (
           <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 md:hidden">

@@ -10,7 +10,6 @@ type SummaryState = {
   totalConversations: number;
   openConversations: number;
   pendingConversations: number;
-  resolvedConversations: number;
   totalTags: number;
 };
 
@@ -18,7 +17,6 @@ const initialSummary: SummaryState = {
   totalConversations: 0,
   openConversations: 0,
   pendingConversations: 0,
-  resolvedConversations: 0,
   totalTags: 0,
 };
 
@@ -38,7 +36,6 @@ export default function DashboardOverviewPage() {
         const totalConversations = Number(conversationRes.data.pagination?.total || conversations.length || 0);
         const openConversations = conversations.filter((c) => c.status === 'OPEN').length;
         const pendingConversations = conversations.filter((c) => c.status === 'PENDING').length;
-        const resolvedConversations = conversations.filter((c) => c.status === 'RESOLVED').length;
 
         const tagData = Array.isArray(tagRes.data) ? tagRes.data : (tagRes.data.data || []);
 
@@ -46,7 +43,6 @@ export default function DashboardOverviewPage() {
           totalConversations,
           openConversations,
           pendingConversations,
-          resolvedConversations,
           totalTags: tagData.length,
         });
       } finally {
@@ -130,14 +126,6 @@ export default function DashboardOverviewPage() {
                 ส่งประกาศ
               </Link>
             </div>
-            <p className="mt-4 text-xs text-gray-500">
-              ปิดการแสดงผลส่วน bot ชั่วคราวตามที่ร้องขอ และสรุปสถานะสนทนาเพื่อใช้ติดตามภาพรวมรายวัน
-            </p>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-lg font-semibold text-gray-900">สถานะปิดเคส</h2>
-            <p className="text-sm text-gray-500">จำนวนเคสที่ปิดแล้ว: {summary.resolvedConversations.toLocaleString()}</p>
           </div>
         </>
       )}
