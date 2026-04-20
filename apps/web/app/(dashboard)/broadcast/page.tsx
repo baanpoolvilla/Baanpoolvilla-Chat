@@ -9,11 +9,11 @@ import BroadcastComposer from '@/components/broadcast/BroadcastComposer';
 interface Broadcast {
   id: string;
   name: string;
-  message: string;
-  target: string;
+  content: string;
+  targetType: string;
   status: string;
-  totalSent: number;
-  totalFailed: number;
+  sentCount: number;
+  failCount: number;
   scheduledAt: string | null;
   createdAt: string;
 }
@@ -28,7 +28,7 @@ export default function BroadcastPage() {
       setLoading(true);
       api
         .get('/api/broadcasts')
-        .then((res) => setBroadcasts(res.data.data || []))
+        .then((res) => setBroadcasts(res.data.broadcasts || []))
         .finally(() => setLoading(false));
     }
   }, [view]);
@@ -116,14 +116,14 @@ export default function BroadcastPage() {
                 <tr key={b.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <p className="text-sm font-medium text-gray-900">{b.name}</p>
-                    <p className="text-xs text-gray-500 truncate max-w-xs">{b.message}</p>
+                    <p className="text-xs text-gray-500 truncate max-w-xs">{b.content}</p>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {b.target === 'ALL' ? 'ทั้งหมด' : b.target === 'BY_TAG' ? 'ตามแท็ก' : 'ตามแพลตฟอร์ม'}
+                    {b.targetType === 'ALL' ? 'ทั้งหมด' : b.targetType === 'BY_TAG' ? 'ตามแท็ก' : 'ตามแพลตฟอร์ม'}
                   </td>
                   <td className="px-6 py-4">{getStatusBadge(b.status)}</td>
-                  <td className="px-6 py-4 text-sm text-green-600 font-medium">{b.totalSent}</td>
-                  <td className="px-6 py-4 text-sm text-red-600 font-medium">{b.totalFailed}</td>
+                  <td className="px-6 py-4 text-sm text-green-600 font-medium">{b.sentCount}</td>
+                  <td className="px-6 py-4 text-sm text-red-600 font-medium">{b.failCount}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{formatTimeAgo(b.createdAt)}</td>
                 </tr>
               ))}

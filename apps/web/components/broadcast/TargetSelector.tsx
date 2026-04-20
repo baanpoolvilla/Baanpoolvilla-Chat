@@ -38,7 +38,8 @@ export default function TargetSelector({
 
   useEffect(() => {
     api.get('/api/tags/categories').then((res) => {
-      setCategories(res.data.data || []);
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setCategories(data);
     });
   }, []);
 

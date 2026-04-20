@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import TargetSelector from './TargetSelector';
 
+const ALL_PLATFORMS = ['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK'];
+
 export default function BroadcastComposer() {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -12,7 +14,7 @@ export default function BroadcastComposer() {
   const [imageUrl, setImageUrl] = useState('');
   const [target, setTarget] = useState<'ALL' | 'BY_TAG' | 'BY_PLATFORM'>('ALL');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(ALL_PLATFORMS);
   const [scheduledAt, setScheduledAt] = useState('');
   const [sending, setSending] = useState(false);
   const [estimatedCount, setEstimatedCount] = useState<number | undefined>();
@@ -33,7 +35,7 @@ export default function BroadcastComposer() {
   const handleTargetChange = (newTarget: 'ALL' | 'BY_TAG' | 'BY_PLATFORM') => {
     setTarget(newTarget);
     setSelectedTagIds([]);
-    setSelectedPlatforms([]);
+    setSelectedPlatforms(newTarget === 'BY_PLATFORM' ? [] : ALL_PLATFORMS);
     setEstimatedCount(undefined);
     if (newTarget === 'ALL') {
       api.post('/api/broadcasts/estimate', { target: 'ALL' }).then((res) => {
@@ -80,18 +82,19 @@ export default function BroadcastComposer() {
     try {
       const payload: Record<string, unknown> = {
         name: name.trim(),
-        message: message.trim(),
-        target,
+        content: message.trim(),
+        contentType: imageUrl.trim() ? 'IMAGE' : 'TEXT',
+        targetType: target,
+        platforms: target === 'BY_PLATFORM' ? selectedPlatforms : ALL_PLATFORMS,
       };
-      if (imageUrl.trim()) payload.imageUrl = imageUrl.trim();
-      if (target === 'BY_TAG') payload.tagIds = selectedTagIds;
-      if (target === 'BY_PLATFORM') payload.platforms = selectedPlatforms;
+      if (imageUrl.trim()) payload.mediaUrl = imageUrl.trim();
+      if (target === 'BY_TAG') payload.tagFilter = selectedTagIds;
       if (!sendNow && scheduledAt) {
         payload.scheduledAt = new Date(scheduledAt).toISOString();
       }
 
       const res = await api.post('/api/broadcasts', payload);
-      const broadcastId = res.data.data?.id;
+      const broadcastId = res.data?.id || res.data?.data?.id;
 
       if (sendNow && broadcastId) {
         await api.post(`/api/broadcasts/${broadcastId}/send`);
