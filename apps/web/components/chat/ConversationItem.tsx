@@ -12,7 +12,8 @@ interface ConversationItemProps {
 }
 
 export default function ConversationItem({ conversation, isActive, onClick }: ConversationItemProps) {
-  const { contact, platform, lastMessage, lastMsgAt, unreadCount, tags, assignments, priority } = conversation;
+  const { contact, platform, lastMessage, lastMsgAt, unreadCount, tags, assignments, priority, notes } = conversation;
+  const displayName = (notes && notes.length > 0) ? notes[0].content : contact.displayName;
 
   return (
     <button
@@ -43,7 +44,7 @@ export default function ConversationItem({ conversation, isActive, onClick }: Co
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <h4 className="truncate text-sm font-semibold text-gray-900">
-            {contact.displayName}
+            {displayName}
           </h4>
           <span className="flex-shrink-0 text-xs text-gray-400">
             {lastMsgAt ? formatTimeAgo(lastMsgAt) : ''}

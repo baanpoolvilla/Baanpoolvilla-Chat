@@ -58,6 +58,10 @@ export class ConversationService {
             take: 1,
             orderBy: { sentAt: 'desc' },
           },
+          notes: {
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+          },
         },
         orderBy: [
           { lastMsgAt: 'desc' },
