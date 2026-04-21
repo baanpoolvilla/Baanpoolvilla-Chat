@@ -155,6 +155,14 @@ export interface ConversationNote {
   createdAt: string;
 }
 
+export interface QuickReply {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── API Response Types ─────────────────────────────────
 export interface ConversationFilters {
   status?: ConversationStatus;

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, KeyboardEvent } from 'react';
-import { Send, Paperclip, Smile } from 'lucide-react';
+import { Send, Paperclip, MessageSquarePlus } from 'lucide-react';
+import QuickReplyPicker from './QuickReplyPicker';
 
 interface MessageInputProps {
   onSend: (content: string, contentType?: string, mediaUrl?: string) => void;
@@ -18,7 +19,9 @@ const PLATFORM_LIMITS: Record<string, number> = {
 
 export default function MessageInput({ onSend, disabled, platform }: MessageInputProps) {
   const [content, setContent] = useState('');
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const quickReplyBtnRef = useRef<HTMLDivElement>(null);
   const maxChars = platform ? PLATFORM_LIMITS[platform] || 5000 : 5000;
 
   const handleSend = () => {
@@ -45,9 +48,38 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     }
   };
 
+  const handleSelectQuickReply = (text: string) => {
+    setContent(text.slice(0, maxChars));
+    setShowQuickReplies(false);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+      handleInput();
+    }, 0);
+  };
+
   return (
     <div className="border-t border-gray-200 bg-white p-4">
-      <div className="flex items-end gap-2">
+      <div className="relative flex items-end gap-2">
+        {/* Quick Reply button */}
+        <div ref={quickReplyBtnRef} className="relative flex-shrink-0">
+          <button
+            onClick={() => setShowQuickReplies((v) => !v)}
+            disabled={disabled}
+            title="ข้อความสำเร็จรูป"
+            className={`rounded-lg p-2 transition-colors hover:bg-gray-100 disabled:opacity-50 ${
+              showQuickReplies ? 'bg-brand-50 text-brand-600' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <MessageSquarePlus className="h-5 w-5" />
+          </button>
+          {showQuickReplies && (
+            <QuickReplyPicker
+              onSelect={handleSelectQuickReply}
+              onClose={() => setShowQuickReplies(false)}
+            />
+          )}
+        </div>
+
         <button
           className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           title="Attach file"
@@ -85,3 +117,4 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     </div>
   );
 }
+
