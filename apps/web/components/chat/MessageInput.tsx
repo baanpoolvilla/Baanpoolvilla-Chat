@@ -57,6 +57,33 @@ const LINE_STICKERS = [
   { packageId: '4', stickerId: '273' },
   { packageId: '4', stickerId: '274' },
   { packageId: '4', stickerId: '275' },
+  // OA Sticker Pack 1 (11537)
+  { packageId: '11537', stickerId: '52002734' },
+  { packageId: '11537', stickerId: '52002735' },
+  { packageId: '11537', stickerId: '52002736' },
+  { packageId: '11537', stickerId: '52002737' },
+  { packageId: '11537', stickerId: '52002738' },
+  { packageId: '11537', stickerId: '52002739' },
+  { packageId: '11537', stickerId: '52002740' },
+  { packageId: '11537', stickerId: '52002741' },
+  // OA Sticker Pack 2 (11538)
+  { packageId: '11538', stickerId: '51626494' },
+  { packageId: '11538', stickerId: '51626495' },
+  { packageId: '11538', stickerId: '51626496' },
+  { packageId: '11538', stickerId: '51626497' },
+  { packageId: '11538', stickerId: '51626498' },
+  { packageId: '11538', stickerId: '51626499' },
+  { packageId: '11538', stickerId: '51626500' },
+  { packageId: '11538', stickerId: '51626501' },
+  // OA Sticker Pack 3 (11539)
+  { packageId: '11539', stickerId: '52114110' },
+  { packageId: '11539', stickerId: '52114111' },
+  { packageId: '11539', stickerId: '52114112' },
+  { packageId: '11539', stickerId: '52114113' },
+  { packageId: '11539', stickerId: '52114114' },
+  { packageId: '11539', stickerId: '52114115' },
+  { packageId: '11539', stickerId: '52114116' },
+  { packageId: '11539', stickerId: '52114117' },
 ];
 
 const STICKER_FAVORITES_KEY = 'lineStickerFavorites';
