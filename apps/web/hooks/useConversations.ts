@@ -95,6 +95,16 @@ export function useConversations(initialFilters?: ConversationFilters) {
     );
   }, []);
 
+  const markConversationRead = useCallback((conversationId: string) => {
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, unreadCount: 0 }
+          : conversation
+      )
+    );
+  }, []);
+
   return {
     conversations,
     pagination,
@@ -103,5 +113,6 @@ export function useConversations(initialFilters?: ConversationFilters) {
     setFilters,
     refetch: fetchConversations,
     updateContactName,
+    markConversationRead,
   };
 }

@@ -32,13 +32,19 @@ const platformOptions: { value: Platform | ''; label: string }[] = [
 export default function ConversationList({ activeId, onSelect, registerContactRenamer }: ConversationListProps) {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const { conversations, isLoading, filters, setFilters, updateContactName } = useConversations();
+  const { conversations, isLoading, filters, setFilters, updateContactName, markConversationRead } = useConversations();
 
   useEffect(() => {
     if (registerContactRenamer) {
       registerContactRenamer(updateContactName);
     }
   }, [registerContactRenamer, updateContactName]);
+
+  useEffect(() => {
+    if (activeId) {
+      markConversationRead(activeId);
+    }
+  }, [activeId, markConversationRead]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -137,7 +143,10 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
                 key={conv.id}
                 conversation={conv}
                 isActive={conv.id === activeId}
-                onClick={() => onSelect(conv)}
+                onClick={() => {
+                  markConversationRead(conv.id);
+                  onSelect(conv);
+                }}
               />
             ))}
           </div>

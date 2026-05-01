@@ -4,6 +4,7 @@ import { ConversationService } from '../services/ConversationService';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { logger } from '../lib/logger';
 import prisma from '../lib/prisma';
+import { getSocketIO } from '../lib/socket';
 
 const router = Router();
 
@@ -103,6 +104,7 @@ router.patch('/:id/bot', async (req: AuthRequest, res: Response): Promise<void> 
 router.post('/:id/read', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await ConversationService.markRead(req.params.id);
+    getSocketIO().emit('conversation:updated', { id: req.params.id, unreadCount: 0 });
     res.json({ message: 'Marked as read' });
   } catch (error) {
     logger.error('Mark read error', { error });
