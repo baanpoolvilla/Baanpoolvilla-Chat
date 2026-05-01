@@ -13,9 +13,10 @@ import PlatformBadge from '@/components/common/PlatformBadge';
 interface ConversationInfoProps {
   conversationId: string;
   onClose?: () => void;
+  onContactRenamed?: (displayName: string) => void;
 }
 
-export default function ConversationInfo({ conversationId, onClose }: ConversationInfoProps) {
+export default function ConversationInfo({ conversationId, onClose, onContactRenamed }: ConversationInfoProps) {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [notes, setNotes] = useState<ConversationNote[]>([]);
   const [newNote, setNewNote] = useState('');
@@ -98,11 +99,10 @@ export default function ConversationInfo({ conversationId, onClose }: Conversati
       await api.patch(`/api/contacts/${conversation.contact.id}`, {
         displayName: newDisplayName.trim(),
       });
-      setConversation({
-        ...conversation,
-        contact: { ...conversation.contact, displayName: newDisplayName.trim() },
-      });
+      const updated = { ...conversation, contact: { ...conversation.contact, displayName: newDisplayName.trim() } };
+      setConversation(updated);
       setEditingName(false);
+      onContactRenamed?.(newDisplayName.trim());
     } catch (error) {
       console.error('Failed to rename contact:', error);
     }

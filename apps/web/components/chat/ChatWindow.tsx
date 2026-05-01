@@ -12,9 +12,10 @@ import PlatformBadge from '@/components/common/PlatformBadge';
 interface ChatWindowProps {
   conversationId: string;
   onToggleInfo?: () => void;
+  contactNameOverride?: string;
 }
 
-export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowProps) {
+export default function ChatWindow({ conversationId, onToggleInfo, contactNameOverride }: ChatWindowProps) {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const { messages, isLoading, hasMore, loadMore, sendMessage } = useMessages(conversationId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -62,7 +63,7 @@ export default function ChatWindow({ conversationId, onToggleInfo }: ChatWindowP
         </div>
         <div className="flex-1">
           <h3 className="text-sm font-semibold text-gray-900">
-            {conversation?.contact?.displayName || 'Loading...'}
+            {contactNameOverride ?? conversation?.contact?.displayName ?? 'Loading...'}
           </h3>
           <div className="flex items-center gap-2">
             {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}

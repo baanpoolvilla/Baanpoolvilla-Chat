@@ -12,9 +12,11 @@ export default function ConversationDetailPage() {
   const conversationId = params.id as string;
   const [showInfo, setShowInfo] = useState(true);
   const [selectedId, setSelectedId] = useState(conversationId);
+  const [contactNameOverride, setContactNameOverride] = useState<string | undefined>(undefined);
 
   const handleSelect = (conversation: Conversation) => {
     setSelectedId(conversation.id);
+    setContactNameOverride(undefined);
     window.history.replaceState(null, '', `/conversations/${conversation.id}`);
   };
 
@@ -33,6 +35,7 @@ export default function ConversationDetailPage() {
         <ChatWindow
           conversationId={selectedId}
           onToggleInfo={() => setShowInfo(!showInfo)}
+          contactNameOverride={contactNameOverride}
         />
       </div>
 
@@ -42,6 +45,7 @@ export default function ConversationDetailPage() {
           <ConversationInfo
             conversationId={selectedId}
             onClose={() => setShowInfo(false)}
+            onContactRenamed={(name) => setContactNameOverride(name)}
           />
         </div>
       )}

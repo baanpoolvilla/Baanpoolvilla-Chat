@@ -53,7 +53,18 @@ export function useMessages(conversationId: string | null) {
   useEffect(() => {
     const offNew = on('message:new', (message) => {
       if (message.conversationId === conversationId) {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => {
+          // deduplicate: skip if already in list (added via optimistic or previous event)
+          if (prev.some((m) => m.id === message.id)) return prev;
+          // replace temp optimistic message if content matches
+          const tempIdx = prev.findIndex((m) => m.id.startsWith('temp-') && m.content === message.content && m.contentType === message.contentType);
+          if (tempIdx !== -1) {
+            const next = [...prev];
+            next[tempIdx] = message;
+            return next;
+          }
+          return [...prev, message];
+        });
       }
     });
 
@@ -71,12 +82,34 @@ export function useMessages(conversationId: string | null) {
   const sendMessage = useCallback(async (content: string, contentType = 'TEXT', mediaUrl?: string) => {
     if (!conversationId) return;
 
-    await api.post('/api/messages', {
+    // Optimistic update — show message immediately
+    const tempId = `temp-${Date.now()}`;
+    const tempMessage: Message = {
+      id: tempId,
       conversationId,
       content,
-      contentType,
+      contentType: contentType as Message['contentType'],
       mediaUrl,
-    });
+      senderType: 'ADMIN',
+      isRead: true,
+      sentAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, tempMessage]);
+
+    try {
+      const res = await api.post('/api/messages', {
+        conversationId,
+        content,
+        contentType,
+        mediaUrl,
+      });
+      // Replace temp with real message from server
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? res.data : m)));
+    } catch (error) {
+      // Remove temp on failure
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      throw error;
+    }
   }, [conversationId]);
 
   return {
