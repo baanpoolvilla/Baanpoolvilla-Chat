@@ -6,7 +6,7 @@ import prisma from '../../lib/prisma';
 export class LineService {
   private static readonly API_URL = 'https://api.line.me/v2/bot/message';
 
-  private static async getAccessToken(): Promise<string | null> {
+  static async getAccessToken(): Promise<string | null> {
     try {
       const cfg = await prisma.platformConfig.findUnique({ where: { platform: 'LINE' } });
       if (cfg) {

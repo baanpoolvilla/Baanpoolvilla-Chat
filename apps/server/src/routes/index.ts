@@ -8,6 +8,7 @@ import broadcastRoutes from './broadcast';
 import adminRoutes from './admins';
 import settingsRoutes from './settings';
 import quickRepliesRoutes from './quickReplies';
+import mediaRoutes from './media';
 import lineWebhook from './webhooks/line';
 import facebookWebhook from './webhooks/facebook';
 import instagramWebhook from './webhooks/instagram';
@@ -24,6 +25,7 @@ router.use('/broadcasts', broadcastRoutes);
 router.use('/admins', adminRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/quick-replies', quickRepliesRoutes);
+router.use('/media', mediaRoutes);
 
 // Webhooks
 router.use('/webhooks/line', lineWebhook);

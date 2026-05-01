@@ -7,12 +7,27 @@ import { logger } from '../../lib/logger';
 
 const router = Router();
 
+function getApiBaseUrl(req: Request): string {
+  const forwardedProto = req.headers['x-forwarded-proto']?.toString().split(',')[0].trim();
+  const proto = forwardedProto || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host']?.toString() || req.get('host');
+
+  if (host) {
+    return `${proto}://${host}`;
+  }
+
+  return process.env.PUBLIC_API_URL
+    || process.env.NEXT_PUBLIC_API_URL
+    || `http://localhost:${process.env.PORT || '3001'}`;
+}
+
 router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: Response): Promise<void> => {
   res.status(200).json({ status: 'ok' });
 
   try {
     const { events } = req.body;
     if (!events || !Array.isArray(events)) return;
+    const apiBaseUrl = getApiBaseUrl(req);
 
     for (const event of events) {
       if (event.type !== 'message') continue;
@@ -29,22 +44,22 @@ router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: 
         case 'image':
           content = '[Image]';
           contentType = 'IMAGE';
-          mediaUrl = `https://api-data.line.me/v2/bot/message/${event.message.id}/content`;
+          mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
           break;
         case 'video':
           content = '[Video]';
           contentType = 'VIDEO';
-          mediaUrl = `https://api-data.line.me/v2/bot/message/${event.message.id}/content`;
+          mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
           break;
         case 'audio':
           content = '[Audio]';
           contentType = 'AUDIO';
-          mediaUrl = `https://api-data.line.me/v2/bot/message/${event.message.id}/content`;
+          mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
           break;
         case 'file':
           content = event.message.fileName || '[File]';
           contentType = 'FILE';
-          mediaUrl = `https://api-data.line.me/v2/bot/message/${event.message.id}/content`;
+          mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
           break;
         case 'sticker':
           content = `[Sticker: ${event.message.packageId}/${event.message.stickerId}]`;
