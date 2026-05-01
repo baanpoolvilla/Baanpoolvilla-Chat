@@ -7,7 +7,7 @@ export class LineService {
   private static readonly API_URL = 'https://api.line.me/v2/bot/message';
   private static readonly SUPPORTED_STICKERS = new Set<string>([
     ...Array.from({ length: 14 }, (_, i) => `1/${i + 1}`),
-    ...Array.from({ length: 12 }, (_, i) => `2/${i + 18}`),
+    ...Array.from({ length: 15 }, (_, i) => `2/${i + 15}`),  // IDs 15-29
     ...Array.from({ length: 10 }, (_, i) => `4/${i + 266}`),
     ...Array.from({ length: 8 }, (_, i) => `11537/${i + 52002734}`),
     ...Array.from({ length: 8 }, (_, i) => `11538/${i + 51626494}`),
