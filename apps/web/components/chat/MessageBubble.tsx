@@ -162,8 +162,23 @@ function renderContent(message: Message, onImageClick: (url: string) => void) {
           {message.content}
         </a>
       );
-    case 'STICKER':
+    case 'STICKER': {
+      const match = message.content.match(/\[Sticker:\s*(\d+)\/(\d+)\]/);
+      if (match) {
+        const stickerId = match[2];
+        const stickerUrl = `https://stickershop.line-scdn.net/stickershop/v1/sticker/${stickerId}/android/sticker.png`;
+        return (
+          <img
+            src={stickerUrl}
+            alt="Sticker"
+            className="mt-1 cursor-pointer hover:opacity-90 transition-opacity"
+            style={{ width: 100, height: 100, objectFit: 'contain' }}
+            onClick={() => onImageClick(stickerUrl)}
+          />
+        );
+      }
       return <p className="text-2xl">{message.content}</p>;
+    }
     case 'LOCATION':
       try {
         const loc = JSON.parse(message.content);
