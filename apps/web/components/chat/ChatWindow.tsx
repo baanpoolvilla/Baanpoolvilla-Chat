@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
@@ -20,16 +20,26 @@ export default function ChatWindow({ conversationId, onToggleInfo, contactNameOv
   const { messages, isLoading, hasMore, loadMore, sendMessage } = useMessages(conversationId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const shouldJumpToBottomRef = useRef(true);
+
+  const scrollToBottom = (behavior: ScrollBehavior) => {
+    messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+  };
 
   useEffect(() => {
+    shouldJumpToBottomRef.current = true;
     api.get(`/api/conversations/${conversationId}`).then((res) => {
       setConversation(res.data.data || res.data);
     }).catch(() => {});
   }, [conversationId]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useLayoutEffect(() => {
+    if (messages.length === 0) return;
+
+    const behavior: ScrollBehavior = shouldJumpToBottomRef.current ? 'auto' : 'smooth';
+    scrollToBottom(behavior);
+    shouldJumpToBottomRef.current = false;
+  }, [conversationId, messages.length]);
 
   useEffect(() => {
     api.post(`/api/conversations/${conversationId}/read`).catch(() => {});

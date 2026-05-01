@@ -5,25 +5,6 @@ import api from '@/lib/api';
 import { useSocket } from './useSocket';
 import type { Conversation, ConversationListResponse, Platform, ConversationStatus } from '@/types';
 
-function getConversationSortTime(conversation: Conversation) {
-  return new Date(
-    conversation.lastMsgAt || conversation.updatedAt || conversation.createdAt
-  ).getTime();
-}
-
-function sortConversations(items: Conversation[]) {
-  return [...items].sort((left, right) => getConversationSortTime(right) - getConversationSortTime(left));
-}
-
-function upsertConversation(items: Conversation[], incoming: Conversation) {
-  const existingIndex = items.findIndex((item) => item.id === incoming.id);
-  const nextItems = existingIndex === -1
-    ? [incoming, ...items]
-    : items.map((item) => (item.id === incoming.id ? { ...item, ...incoming } : item));
-
-  return sortConversations(nextItems);
-}
-
 interface ConversationFilters {
   status?: ConversationStatus;
   platform?: Platform;
@@ -42,6 +23,14 @@ export function useConversations(initialFilters?: ConversationFilters) {
   const [filters, setFilters] = useState<ConversationFilters>(initialFilters || {});
   const { on } = useSocket();
 
+  const sortByLatestMessage = useCallback((items: Conversation[]) => {
+    return [...items].sort((left, right) => {
+      const leftTime = new Date(left.lastMsgAt || left.updatedAt || 0).getTime();
+      const rightTime = new Date(right.lastMsgAt || right.updatedAt || 0).getTime();
+      return rightTime - leftTime;
+    });
+  }, []);
+
   const fetchConversations = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -56,14 +45,14 @@ export function useConversations(initialFilters?: ConversationFilters) {
       if (filters.limit) params.set('limit', filters.limit.toString());
 
       const response = await api.get<ConversationListResponse>(`/api/conversations?${params.toString()}`);
-      setConversations(sortConversations(response.data.conversations));
+      setConversations(sortByLatestMessage(response.data.conversations));
       setPagination(response.data.pagination);
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, sortByLatestMessage]);
 
   useEffect(() => {
     fetchConversations();
@@ -71,18 +60,30 @@ export function useConversations(initialFilters?: ConversationFilters) {
 
   useEffect(() => {
     const offUpdated = on('conversation:updated', (updated) => {
-      setConversations((prev) => upsertConversation(prev, updated));
+      setConversations((prev) => {
+        const existingIndex = prev.findIndex((conversation) => conversation.id === updated.id);
+        if (existingIndex === -1) {
+          return prev;
+        }
+
+        const merged = { ...prev[existingIndex], ...updated };
+        const next = prev.filter((conversation) => conversation.id !== updated.id);
+        return [merged, ...next];
+      });
     });
 
     const offNew = on('conversation:new', (conversation) => {
-      setConversations((prev) => upsertConversation(prev, conversation));
+      setConversations((prev) => {
+        const next = prev.filter((item) => item.id !== conversation.id);
+        return [conversation, ...next];
+      });
     });
 
     return () => {
       offUpdated();
       offNew();
     };
-  }, [on]);
+  }, [on, sortByLatestMessage]);
 
   const updateContactName = useCallback((contactId: string, displayName: string) => {
     setConversations((prev) =>
