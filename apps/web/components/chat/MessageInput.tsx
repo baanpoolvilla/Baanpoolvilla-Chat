@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, KeyboardEvent } from 'react';
-import { Send, Paperclip, MessageSquarePlus } from 'lucide-react';
+import { Send, Paperclip, MessageSquarePlus, Sticker } from 'lucide-react';
 import QuickReplyPicker from './QuickReplyPicker';
 
 interface MessageInputProps {
@@ -17,11 +17,24 @@ const PLATFORM_LIMITS: Record<string, number> = {
   TIKTOK: 500,
 };
 
+const LINE_STICKERS = [
+  { packageId: '11537', stickerId: '52002734' },
+  { packageId: '11537', stickerId: '52002735' },
+  { packageId: '11537', stickerId: '52002736' },
+  { packageId: '11537', stickerId: '52002737' },
+  { packageId: '11537', stickerId: '52002738' },
+  { packageId: '11537', stickerId: '52002739' },
+  { packageId: '11537', stickerId: '52002740' },
+  { packageId: '11537', stickerId: '52002741' },
+];
+
 export default function MessageInput({ onSend, disabled, platform }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const quickReplyBtnRef = useRef<HTMLDivElement>(null);
+  const stickerBtnRef = useRef<HTMLDivElement>(null);
   const maxChars = platform ? PLATFORM_LIMITS[platform] || 5000 : 5000;
 
   const handleSend = () => {
@@ -57,6 +70,12 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     }, 0);
   };
 
+  const handleSendSticker = (packageId: string, stickerId: string) => {
+    if (disabled || platform !== 'LINE') return;
+    onSend(`[Sticker: ${packageId}/${stickerId}]`, 'STICKER');
+    setShowStickerPicker(false);
+  };
+
   return (
     <div className="border-t border-gray-200 bg-white p-4">
       <div className="relative flex items-end gap-2">
@@ -86,6 +105,41 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
         >
           <Paperclip className="h-5 w-5" />
         </button>
+
+        {platform === 'LINE' && (
+          <div ref={stickerBtnRef} className="relative flex-shrink-0">
+            <button
+              onClick={() => setShowStickerPicker((v) => !v)}
+              disabled={disabled}
+              title="ส่งสติกเกอร์"
+              className={`rounded-lg p-2 transition-colors hover:bg-gray-100 disabled:opacity-50 ${
+                showStickerPicker ? 'bg-brand-50 text-brand-600' : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <Sticker className="h-5 w-5" />
+            </button>
+            {showStickerPicker && (
+              <div className="absolute bottom-12 left-0 z-20 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+                <p className="mb-2 text-xs font-semibold text-gray-500">เลือกสติกเกอร์ LINE</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {LINE_STICKERS.map((s) => {
+                    const stickerUrl = `https://stickershop.line-scdn.net/stickershop/v1/sticker/${s.stickerId}/android/sticker.png`;
+                    return (
+                      <button
+                        key={`${s.packageId}-${s.stickerId}`}
+                        onClick={() => handleSendSticker(s.packageId, s.stickerId)}
+                        className="rounded-lg border border-transparent p-1 hover:border-brand-300 hover:bg-gray-50"
+                        title={`${s.packageId}/${s.stickerId}`}
+                      >
+                        <img src={stickerUrl} alt="sticker" className="h-12 w-12 object-contain" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="relative flex-1">
           <textarea

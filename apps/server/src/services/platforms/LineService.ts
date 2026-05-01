@@ -48,11 +48,16 @@ export class LineService {
           };
           break;
         case 'STICKER':
+          {
+            const match = content.match(/\[Sticker:\s*(\d+)\/(\d+)\]/);
+            const packageId = match?.[1] || '446';
+            const stickerId = match?.[2] || '1988';
           message = {
             type: 'sticker',
-            packageId: '446',
-            stickerId: '1988',
+            packageId,
+            stickerId,
           };
+          }
           break;
         case 'LOCATION': {
           const loc = JSON.parse(content);
