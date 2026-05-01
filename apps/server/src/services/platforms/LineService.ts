@@ -6,9 +6,9 @@ import prisma from '../../lib/prisma';
 export class LineService {
   private static readonly API_URL = 'https://api.line.me/v2/bot/message';
   private static readonly SUPPORTED_STICKERS = new Set([
-    '1/1', '1/2', '1/3', '1/4', '1/13', '1/14',
-    '2/18', '2/19', '2/24', '2/28',
-    '4/266', '4/275',
+    '1/1', '1/2', '1/3', '1/4', '1/5', '1/6', '1/7', '1/8', '1/9', '1/10', '1/11', '1/12', '1/13', '1/14',
+    '2/18', '2/19', '2/20', '2/21', '2/22', '2/23', '2/24', '2/25', '2/26', '2/27', '2/28', '2/29',
+    '4/266', '4/267', '4/268', '4/269', '4/270', '4/271', '4/272', '4/273', '4/274', '4/275',
   ]);
 
   static async getAccessToken(): Promise<string | null> {

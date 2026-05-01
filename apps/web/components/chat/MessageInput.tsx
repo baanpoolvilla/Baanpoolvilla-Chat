@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, KeyboardEvent } from 'react';
-import { Send, Paperclip, MessageSquarePlus, Sticker } from 'lucide-react';
+import { useState, useRef, KeyboardEvent, useEffect } from 'react';
+import { Send, Paperclip, MessageSquarePlus, Sticker, Star } from 'lucide-react';
 import QuickReplyPicker from './QuickReplyPicker';
 
 interface MessageInputProps {
@@ -22,24 +22,65 @@ const LINE_STICKERS = [
   { packageId: '1', stickerId: '2' },
   { packageId: '1', stickerId: '3' },
   { packageId: '1', stickerId: '4' },
+  { packageId: '1', stickerId: '5' },
+  { packageId: '1', stickerId: '6' },
+  { packageId: '1', stickerId: '7' },
+  { packageId: '1', stickerId: '8' },
+  { packageId: '1', stickerId: '9' },
+  { packageId: '1', stickerId: '10' },
+  { packageId: '1', stickerId: '11' },
+  { packageId: '1', stickerId: '12' },
   { packageId: '1', stickerId: '13' },
   { packageId: '1', stickerId: '14' },
   { packageId: '2', stickerId: '18' },
   { packageId: '2', stickerId: '19' },
+  { packageId: '2', stickerId: '20' },
+  { packageId: '2', stickerId: '21' },
+  { packageId: '2', stickerId: '22' },
+  { packageId: '2', stickerId: '23' },
   { packageId: '2', stickerId: '24' },
+  { packageId: '2', stickerId: '25' },
+  { packageId: '2', stickerId: '26' },
+  { packageId: '2', stickerId: '27' },
   { packageId: '2', stickerId: '28' },
+  { packageId: '2', stickerId: '29' },
   { packageId: '4', stickerId: '266' },
+  { packageId: '4', stickerId: '267' },
+  { packageId: '4', stickerId: '268' },
+  { packageId: '4', stickerId: '269' },
+  { packageId: '4', stickerId: '270' },
+  { packageId: '4', stickerId: '271' },
+  { packageId: '4', stickerId: '272' },
+  { packageId: '4', stickerId: '273' },
+  { packageId: '4', stickerId: '274' },
   { packageId: '4', stickerId: '275' },
 ];
+
+const STICKER_FAVORITES_KEY = 'lineStickerFavorites';
 
 export default function MessageInput({ onSend, disabled, platform }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [favoriteStickers, setFavoriteStickers] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const quickReplyBtnRef = useRef<HTMLDivElement>(null);
   const stickerBtnRef = useRef<HTMLDivElement>(null);
   const maxChars = platform ? PLATFORM_LIMITS[platform] || 5000 : 5000;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(STICKER_FAVORITES_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setFavoriteStickers(parsed.filter((v) => typeof v === 'string'));
+      }
+    } catch {
+      // ignore invalid local storage
+    }
+  }, []);
 
   const handleSend = () => {
     const trimmed = content.trim();
@@ -79,6 +120,21 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     onSend(`[Sticker: ${packageId}/${stickerId}]`, 'STICKER');
     setShowStickerPicker(false);
   };
+
+  const stickerKey = (packageId: string, stickerId: string) => `${packageId}/${stickerId}`;
+
+  const toggleFavoriteSticker = (packageId: string, stickerId: string) => {
+    const key = stickerKey(packageId, stickerId);
+    const next = favoriteStickers.includes(key)
+      ? favoriteStickers.filter((s) => s !== key)
+      : [key, ...favoriteStickers];
+    setFavoriteStickers(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STICKER_FAVORITES_KEY, JSON.stringify(next));
+    }
+  };
+
+  const favoriteStickerList = LINE_STICKERS.filter((s) => favoriteStickers.includes(stickerKey(s.packageId, s.stickerId)));
 
   return (
     <div className="border-t border-gray-200 bg-white p-4">
@@ -123,22 +179,66 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
               <Sticker className="h-5 w-5" />
             </button>
             {showStickerPicker && (
-              <div className="absolute bottom-12 left-0 z-20 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
-                <p className="mb-2 text-xs font-semibold text-gray-500">เลือกสติกเกอร์ LINE</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {LINE_STICKERS.map((s) => {
-                    const stickerUrl = `https://stickershop.line-scdn.net/stickershop/v1/sticker/${s.stickerId}/android/sticker.png`;
-                    return (
-                      <button
-                        key={`${s.packageId}-${s.stickerId}`}
-                        onClick={() => handleSendSticker(s.packageId, s.stickerId)}
-                        className="rounded-lg border border-transparent p-1 hover:border-brand-300 hover:bg-gray-50"
-                        title={`${s.packageId}/${s.stickerId}`}
-                      >
-                        <img src={stickerUrl} alt="sticker" className="h-12 w-12 object-contain" />
-                      </button>
-                    );
-                  })}
+              <div className="absolute bottom-12 left-0 z-20 w-80 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+                <p className="mb-2 text-xs font-semibold text-gray-500">เลือกสติกเกอร์ LINE (รองรับแน่นอน)</p>
+
+                {favoriteStickerList.length > 0 && (
+                  <div className="mb-3">
+                    <p className="mb-1 text-[11px] font-semibold text-amber-500">ติดดาว</p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {favoriteStickerList.map((s) => {
+                        const key = stickerKey(s.packageId, s.stickerId);
+                        const stickerUrl = `https://stickershop.line-scdn.net/stickershop/v1/sticker/${s.stickerId}/android/sticker.png`;
+                        return (
+                          <div key={`fav-${key}`} className="group relative">
+                            <button
+                              onClick={() => handleSendSticker(s.packageId, s.stickerId)}
+                              className="w-full rounded-lg border border-amber-200 p-1 hover:border-brand-300 hover:bg-gray-50"
+                              title={key}
+                            >
+                              <img src={stickerUrl} alt="sticker" className="h-12 w-12 object-contain" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavoriteSticker(s.packageId, s.stickerId); }}
+                              className="absolute -top-1 -right-1 rounded-full bg-white p-0.5 text-amber-500 shadow"
+                              title="ยกเลิกติดดาว"
+                            >
+                              <Star className="h-3 w-3 fill-current" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <p className="mb-1 text-[11px] font-semibold text-gray-500">ทั้งหมด</p>
+                <div className="max-h-56 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-5 gap-2">
+                    {LINE_STICKERS.map((s) => {
+                      const key = stickerKey(s.packageId, s.stickerId);
+                      const isFav = favoriteStickers.includes(key);
+                      const stickerUrl = `https://stickershop.line-scdn.net/stickershop/v1/sticker/${s.stickerId}/android/sticker.png`;
+                      return (
+                        <div key={key} className="group relative">
+                          <button
+                            onClick={() => handleSendSticker(s.packageId, s.stickerId)}
+                            className="w-full rounded-lg border border-transparent p-1 hover:border-brand-300 hover:bg-gray-50"
+                            title={key}
+                          >
+                            <img src={stickerUrl} alt="sticker" className="h-12 w-12 object-contain" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavoriteSticker(s.packageId, s.stickerId); }}
+                            className={`absolute -top-1 -right-1 rounded-full bg-white p-0.5 shadow ${isFav ? 'text-amber-500' : 'text-gray-300 hover:text-amber-500'}`}
+                            title={isFav ? 'ยกเลิกติดดาว' : 'ติดดาว'}
+                          >
+                            <Star className={`h-3 w-3 ${isFav ? 'fill-current' : ''}`} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
