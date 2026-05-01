@@ -5,6 +5,14 @@ import prisma from '../../lib/prisma';
 
 export class LineService {
   private static readonly API_URL = 'https://api.line.me/v2/bot/message';
+  private static readonly SUPPORTED_STICKERS = new Set<string>([
+    ...Array.from({ length: 14 }, (_, i) => `1/${i + 1}`),
+    ...Array.from({ length: 12 }, (_, i) => `2/${i + 18}`),
+    ...Array.from({ length: 10 }, (_, i) => `4/${i + 266}`),
+    ...Array.from({ length: 8 }, (_, i) => `11537/${i + 52002734}`),
+    ...Array.from({ length: 8 }, (_, i) => `11538/${i + 51626494}`),
+    ...Array.from({ length: 8 }, (_, i) => `11539/${i + 52114110}`),
+  ]);
 
   static async getAccessToken(): Promise<string | null> {
     try {
@@ -50,8 +58,13 @@ export class LineService {
         case 'STICKER':
           {
             const match = content.match(/\[Sticker:\s*(\d+)\/(\d+)\]/);
-            const packageId = match?.[1] || '1';
-            const stickerId = match?.[2] || '1';
+            let packageId = match?.[1] || '1';
+            let stickerId = match?.[2] || '1';
+            if (!LineService.SUPPORTED_STICKERS.has(`${packageId}/${stickerId}`)) {
+              logger.warn('Unsupported LINE OA sticker requested, fallback to default', { packageId, stickerId });
+              packageId = '1';
+              stickerId = '1';
+            }
           message = {
             type: 'sticker',
             packageId,
