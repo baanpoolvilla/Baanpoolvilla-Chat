@@ -3,8 +3,9 @@
 import { cn } from '@/lib/utils';
 import type { Message, Platform } from '@/types';
 import { format } from 'date-fns';
-import { Bot, Download } from 'lucide-react';
+import { Bot, Download, X } from 'lucide-react';
 import PlatformBadge from '@/components/common/PlatformBadge';
+import { useState } from 'react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -19,6 +20,7 @@ export default function MessageBubble({
   customerAvatarUrl,
   customerPlatform,
 }: MessageBubbleProps) {
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const isCustomer = message.senderType === 'CUSTOMER';
   const isBot = message.senderType === 'BOT';
   const isSystem = message.senderType === 'SYSTEM';
@@ -74,7 +76,7 @@ export default function MessageBubble({
         </div>
 
         {/* Content */}
-        {renderContent(message)}
+        {renderContent(message, setLightboxUrl)}
 
         {/* Timestamp */}
         <div className={cn(
@@ -93,11 +95,32 @@ export default function MessageBubble({
           {isBot ? <Bot className="h-4 w-4" /> : message.admin?.name?.charAt(0) || 'A'}
         </div>
       )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white hover:text-gray-300"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="h-8 w-8" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Full size"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function renderContent(message: Message) {
+function renderContent(message: Message, onImageClick: (url: string) => void) {
   switch (message.contentType) {
     case 'IMAGE':
       return (
@@ -106,8 +129,9 @@ function renderContent(message: Message) {
             <img
               src={message.mediaUrl}
               alt="Image"
-              className="max-w-full rounded-lg mt-1"
+              className="max-w-full rounded-lg mt-1 cursor-pointer hover:opacity-90 transition-opacity"
               style={{ maxHeight: 300 }}
+              onClick={() => onImageClick(message.mediaUrl!)}
             />
           )}
           {message.content !== '[Image]' && <p className="text-sm mt-1">{message.content}</p>}

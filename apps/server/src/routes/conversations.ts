@@ -190,4 +190,38 @@ router.get('/:id/notes', async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
+const updateNoteSchema = z.object({
+  content: z.string().min(1),
+});
+
+router.patch('/:id/notes/:noteId', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = updateNoteSchema.parse(req.body);
+    const note = await prisma.conversationNote.update({
+      where: { id: req.params.noteId },
+      data: { content: data.content },
+    });
+    res.json(note);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    logger.error('Update note error', { error });
+    res.status(500).json({ error: 'Failed to update note' });
+  }
+});
+
+router.delete('/:id/notes/:noteId', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    await prisma.conversationNote.delete({
+      where: { id: req.params.noteId },
+    });
+    res.json({ message: 'Note deleted' });
+  } catch (error) {
+    logger.error('Delete note error', { error });
+    res.status(500).json({ error: 'Failed to delete note' });
+  }
+});
+
 export default router;
