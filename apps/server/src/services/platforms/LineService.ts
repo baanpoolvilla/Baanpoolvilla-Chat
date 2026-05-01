@@ -5,6 +5,11 @@ import prisma from '../../lib/prisma';
 
 export class LineService {
   private static readonly API_URL = 'https://api.line.me/v2/bot/message';
+  private static readonly SUPPORTED_STICKERS = new Set([
+    '1/1', '1/2', '1/3', '1/4', '1/13', '1/14',
+    '2/18', '2/19', '2/24', '2/28',
+    '4/266', '4/275',
+  ]);
 
   static async getAccessToken(): Promise<string | null> {
     try {
@@ -50,8 +55,13 @@ export class LineService {
         case 'STICKER':
           {
             const match = content.match(/\[Sticker:\s*(\d+)\/(\d+)\]/);
-            const packageId = match?.[1] || '446';
-            const stickerId = match?.[2] || '1988';
+            let packageId = match?.[1] || '1';
+            let stickerId = match?.[2] || '1';
+            if (!LineService.SUPPORTED_STICKERS.has(`${packageId}/${stickerId}`)) {
+              logger.warn('Unsupported LINE sticker requested, fallback to default', { packageId, stickerId });
+              packageId = '1';
+              stickerId = '1';
+            }
           message = {
             type: 'sticker',
             packageId,

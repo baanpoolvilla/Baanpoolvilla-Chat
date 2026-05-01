@@ -18,14 +18,18 @@ const PLATFORM_LIMITS: Record<string, number> = {
 };
 
 const LINE_STICKERS = [
-  { packageId: '11537', stickerId: '52002734' },
-  { packageId: '11537', stickerId: '52002735' },
-  { packageId: '11537', stickerId: '52002736' },
-  { packageId: '11537', stickerId: '52002737' },
-  { packageId: '11537', stickerId: '52002738' },
-  { packageId: '11537', stickerId: '52002739' },
-  { packageId: '11537', stickerId: '52002740' },
-  { packageId: '11537', stickerId: '52002741' },
+  { packageId: '1', stickerId: '1' },
+  { packageId: '1', stickerId: '2' },
+  { packageId: '1', stickerId: '3' },
+  { packageId: '1', stickerId: '4' },
+  { packageId: '1', stickerId: '13' },
+  { packageId: '1', stickerId: '14' },
+  { packageId: '2', stickerId: '18' },
+  { packageId: '2', stickerId: '19' },
+  { packageId: '2', stickerId: '24' },
+  { packageId: '2', stickerId: '28' },
+  { packageId: '4', stickerId: '266' },
+  { packageId: '4', stickerId: '275' },
 ];
 
 export default function MessageInput({ onSend, disabled, platform }: MessageInputProps) {
