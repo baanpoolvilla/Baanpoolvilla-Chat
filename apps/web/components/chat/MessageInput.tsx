@@ -63,6 +63,8 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [favoriteStickers, setFavoriteStickers] = useState<string[]>([]);
+  const [customPackageId, setCustomPackageId] = useState('');
+  const [customStickerId, setCustomStickerId] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const quickReplyBtnRef = useRef<HTMLDivElement>(null);
   const stickerBtnRef = useRef<HTMLDivElement>(null);
@@ -119,6 +121,16 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     if (disabled || platform !== 'LINE') return;
     onSend(`[Sticker: ${packageId}/${stickerId}]`, 'STICKER');
     setShowStickerPicker(false);
+  };
+
+  const handleSendCustomSticker = () => {
+    const packageId = customPackageId.trim();
+    const stickerId = customStickerId.trim();
+    if (!packageId || !stickerId) return;
+    if (!/^\d+$/.test(packageId) || !/^\d+$/.test(stickerId)) return;
+    handleSendSticker(packageId, stickerId);
+    setCustomPackageId('');
+    setCustomStickerId('');
   };
 
   const stickerKey = (packageId: string, stickerId: string) => `${packageId}/${stickerId}`;
@@ -212,7 +224,32 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
                   </div>
                 )}
 
-                <p className="mb-1 text-[11px] font-semibold text-gray-500">ทั้งหมด</p>
+                <div className="mb-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                  <p className="mb-1 text-[11px] font-semibold text-gray-600">ส่งด้วยรหัสสติกเกอร์ (ตัวไหนที่ LINE อนุญาตก็ส่งได้)</p>
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={customPackageId}
+                      onChange={(e) => setCustomPackageId(e.target.value.replace(/[^\d]/g, ''))}
+                      placeholder="packageId"
+                      className="w-20 rounded border border-gray-300 px-2 py-1 text-xs focus:border-brand-500 focus:outline-none"
+                    />
+                    <span className="text-xs text-gray-400">/</span>
+                    <input
+                      value={customStickerId}
+                      onChange={(e) => setCustomStickerId(e.target.value.replace(/[^\d]/g, ''))}
+                      placeholder="stickerId"
+                      className="w-24 rounded border border-gray-300 px-2 py-1 text-xs focus:border-brand-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleSendCustomSticker}
+                      className="rounded bg-brand-600 px-2 py-1 text-xs text-white hover:bg-brand-700"
+                    >
+                      ส่ง
+                    </button>
+                  </div>
+                </div>
+
+                <p className="mb-1 text-[11px] font-semibold text-gray-500">ตัวอย่างยอดนิยม</p>
                 <div className="max-h-56 overflow-y-auto pr-1">
                   <div className="grid grid-cols-5 gap-2">
                     {LINE_STICKERS.map((s) => {
