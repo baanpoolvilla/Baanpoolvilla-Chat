@@ -13,7 +13,7 @@ import PlatformBadge from '@/components/common/PlatformBadge';
 interface ConversationInfoProps {
   conversationId: string;
   onClose?: () => void;
-  onContactRenamed?: (displayName: string) => void;
+  onContactRenamed?: (contactId: string, displayName: string) => void;
 }
 
 export default function ConversationInfo({ conversationId, onClose, onContactRenamed }: ConversationInfoProps) {
@@ -102,7 +102,7 @@ export default function ConversationInfo({ conversationId, onClose, onContactRen
       const updated = { ...conversation, contact: { ...conversation.contact, displayName: newDisplayName.trim() } };
       setConversation(updated);
       setEditingName(false);
-      onContactRenamed?.(newDisplayName.trim());
+      onContactRenamed?.(conversation.contact.id, newDisplayName.trim());
     } catch (error) {
       console.error('Failed to rename contact:', error);
     }

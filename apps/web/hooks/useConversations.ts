@@ -67,6 +67,16 @@ export function useConversations(initialFilters?: ConversationFilters) {
     };
   }, [on]);
 
+  const updateContactName = useCallback((contactId: string, displayName: string) => {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.contact?.id === contactId
+          ? { ...c, contact: { ...c.contact, displayName } }
+          : c
+      )
+    );
+  }, []);
+
   return {
     conversations,
     pagination,
@@ -74,5 +84,6 @@ export function useConversations(initialFilters?: ConversationFilters) {
     filters,
     setFilters,
     refetch: fetchConversations,
+    updateContactName,
   };
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import ConversationList from '@/components/chat/ConversationList';
 import ChatWindow from '@/components/chat/ChatWindow';
@@ -13,12 +13,18 @@ export default function ConversationDetailPage() {
   const [showInfo, setShowInfo] = useState(true);
   const [selectedId, setSelectedId] = useState(conversationId);
   const [contactNameOverride, setContactNameOverride] = useState<string | undefined>(undefined);
+  const listContactRenamer = useRef<((contactId: string, displayName: string) => void) | null>(null);
 
   const handleSelect = (conversation: Conversation) => {
     setSelectedId(conversation.id);
     setContactNameOverride(undefined);
     window.history.replaceState(null, '', `/conversations/${conversation.id}`);
   };
+
+  const handleContactRenamed = useCallback((contactId: string, displayName: string) => {
+    setContactNameOverride(displayName);
+    listContactRenamer.current?.(contactId, displayName);
+  }, []);
 
   return (
     <div className="flex h-full min-h-0">
@@ -27,6 +33,7 @@ export default function ConversationDetailPage() {
         <ConversationList
           activeId={selectedId}
           onSelect={handleSelect}
+          registerContactRenamer={(fn) => { listContactRenamer.current = fn; }}
         />
       </div>
 
@@ -45,7 +52,7 @@ export default function ConversationDetailPage() {
           <ConversationInfo
             conversationId={selectedId}
             onClose={() => setShowInfo(false)}
-            onContactRenamed={(name) => setContactNameOverride(name)}
+            onContactRenamed={handleContactRenamed}
           />
         </div>
       )}

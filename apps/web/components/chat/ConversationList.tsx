@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import ConversationItem from './ConversationItem';
 import type { Conversation, ConversationStatus, Platform } from '@/types';
@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 interface ConversationListProps {
   activeId?: string;
   onSelect: (conversation: Conversation) => void;
+  onContactRenamed?: (contactId: string, displayName: string) => void;
+  registerContactRenamer?: (fn: (contactId: string, displayName: string) => void) => void;
 }
 
 const statusOptions: { value: ConversationStatus | ''; label: string }[] = [
@@ -27,10 +29,16 @@ const platformOptions: { value: Platform | ''; label: string }[] = [
   { value: 'TIKTOK', label: 'TikTok' },
 ];
 
-export default function ConversationList({ activeId, onSelect }: ConversationListProps) {
+export default function ConversationList({ activeId, onSelect, registerContactRenamer }: ConversationListProps) {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const { conversations, isLoading, filters, setFilters } = useConversations();
+  const { conversations, isLoading, filters, setFilters, updateContactName } = useConversations();
+
+  useEffect(() => {
+    if (registerContactRenamer) {
+      registerContactRenamer(updateContactName);
+    }
+  }, [registerContactRenamer, updateContactName]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
