@@ -5,6 +5,25 @@ import api from '@/lib/api';
 import { useSocket } from './useSocket';
 import type { Conversation, ConversationListResponse, Platform, ConversationStatus } from '@/types';
 
+function getConversationSortTime(conversation: Conversation) {
+  return new Date(
+    conversation.lastMsgAt || conversation.updatedAt || conversation.createdAt
+  ).getTime();
+}
+
+function sortConversations(items: Conversation[]) {
+  return [...items].sort((left, right) => getConversationSortTime(right) - getConversationSortTime(left));
+}
+
+function upsertConversation(items: Conversation[], incoming: Conversation) {
+  const existingIndex = items.findIndex((item) => item.id === incoming.id);
+  const nextItems = existingIndex === -1
+    ? [incoming, ...items]
+    : items.map((item) => (item.id === incoming.id ? { ...item, ...incoming } : item));
+
+  return sortConversations(nextItems);
+}
+
 interface ConversationFilters {
   status?: ConversationStatus;
   platform?: Platform;
@@ -37,7 +56,7 @@ export function useConversations(initialFilters?: ConversationFilters) {
       if (filters.limit) params.set('limit', filters.limit.toString());
 
       const response = await api.get<ConversationListResponse>(`/api/conversations?${params.toString()}`);
-      setConversations(response.data.conversations);
+      setConversations(sortConversations(response.data.conversations));
       setPagination(response.data.pagination);
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
@@ -52,13 +71,11 @@ export function useConversations(initialFilters?: ConversationFilters) {
 
   useEffect(() => {
     const offUpdated = on('conversation:updated', (updated) => {
-      setConversations((prev) =>
-        prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
-      );
+      setConversations((prev) => upsertConversation(prev, updated));
     });
 
     const offNew = on('conversation:new', (conversation) => {
-      setConversations((prev) => [conversation, ...prev]);
+      setConversations((prev) => upsertConversation(prev, conversation));
     });
 
     return () => {
