@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import ConversationList from '@/components/chat/ConversationList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ConversationInfo from '@/components/chat/ConversationInfo';
@@ -9,6 +9,7 @@ import type { Conversation } from '@/types';
 
 export default function ConversationDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const conversationId = params.id as string;
   const [showInfo, setShowInfo] = useState(true);
   const [selectedId, setSelectedId] = useState(conversationId);
@@ -43,6 +44,7 @@ export default function ConversationDetailPage() {
           conversationId={selectedId}
           onToggleInfo={() => setShowInfo(!showInfo)}
           contactNameOverride={contactNameOverride}
+          onCloseChat={() => router.push('/conversations')}
         />
       </div>
 

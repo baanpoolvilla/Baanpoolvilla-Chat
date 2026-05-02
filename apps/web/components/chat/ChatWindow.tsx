@@ -5,7 +5,7 @@ import { useMessages } from '@/hooks/useMessages';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import type { Conversation } from '@/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
 
@@ -13,9 +13,10 @@ interface ChatWindowProps {
   conversationId: string;
   onToggleInfo?: () => void;
   contactNameOverride?: string;
+  onCloseChat?: () => void;
 }
 
-export default function ChatWindow({ conversationId, onToggleInfo, contactNameOverride }: ChatWindowProps) {
+export default function ChatWindow({ conversationId, onToggleInfo, contactNameOverride, onCloseChat }: ChatWindowProps) {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const { messages, isLoading, hasMore, loadMore, sendMessage } = useMessages(conversationId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -79,11 +80,22 @@ export default function ChatWindow({ conversationId, onToggleInfo, contactNameOv
             {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}
           </div>
         </div>
-        {onToggleInfo && (
-          <button onClick={onToggleInfo} className="p-2 text-gray-400 hover:text-gray-600">
-            ☰
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {onCloseChat && (
+            <button
+              onClick={onCloseChat}
+              className="rounded p-2 text-gray-400 hover:text-gray-600"
+              title="ปิดแชท"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+          {onToggleInfo && (
+            <button onClick={onToggleInfo} className="p-2 text-gray-400 hover:text-gray-600">
+              ☰
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}

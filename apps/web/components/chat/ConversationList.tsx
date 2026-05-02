@@ -6,6 +6,7 @@ import ConversationItem from './ConversationItem';
 import type { Conversation, ConversationStatus, Platform } from '@/types';
 import { Search, Filter, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import api from '@/lib/api';
 
 interface ConversationListProps {
   activeId?: string;
@@ -45,6 +46,17 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
       markConversationRead(activeId);
     }
   }, [activeId, markConversationRead]);
+
+  useEffect(() => {
+    if (!activeId) return;
+
+    const activeConversation = conversations.find((c) => c.id === activeId);
+    if (!activeConversation || (activeConversation.unreadCount || 0) <= 0) return;
+
+    // Keep unread badge cleared while the active conversation is open.
+    markConversationRead(activeId);
+    api.post(`/api/conversations/${activeId}/read`).catch(() => {});
+  }, [activeId, conversations, markConversationRead]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
