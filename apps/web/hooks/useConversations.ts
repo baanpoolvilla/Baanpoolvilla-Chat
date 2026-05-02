@@ -13,25 +13,40 @@ function playNotificationSound() {
     if (!AudioCtx) return;
 
     const ctx = new AudioCtx();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
 
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.16, ctx.currentTime);
+    master.connect(ctx.destination);
 
-    gain.gain.setValueAtTime(0.001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    const playNote = (startAt: number, frequency: number, duration: number) => {
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(frequency, startAt);
 
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(1, startAt + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
 
-    oscillator.onended = () => {
-      ctx.close().catch(() => {});
+      oscillator.connect(gain);
+      gain.connect(master);
+
+      oscillator.start(startAt);
+      oscillator.stop(startAt + duration + 0.01);
     };
+
+    const t = ctx.currentTime;
+    // Two-note chime with brighter pitch, closer to familiar chat-app tone.
+    playNote(t, 1046.5, 0.11);
+    playNote(t + 0.12, 1318.5, 0.14);
+
+    window.setTimeout(() => {
+      ctx.close().catch(() => {});
+    }, 450);
   } catch {
     // Ignore audio playback errors (autoplay restrictions, unsupported browser, etc.)
   }
