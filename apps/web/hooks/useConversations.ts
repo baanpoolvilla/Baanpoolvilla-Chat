@@ -142,7 +142,7 @@ export function useConversations(initialFilters?: ConversationFilters) {
 
         const merged = { ...prev[existingIndex], ...updated };
         const next = prev.filter((conversation) => conversation.id !== updated.id);
-        return [merged, ...next];
+        return sortByLatestMessage([...next, merged]);
       });
     });
 
@@ -152,7 +152,7 @@ export function useConversations(initialFilters?: ConversationFilters) {
           playNotificationSound();
         }
         const next = prev.filter((item) => item.id !== conversation.id);
-        return [conversation, ...next];
+        return sortByLatestMessage([conversation, ...next]);
       });
     });
 
