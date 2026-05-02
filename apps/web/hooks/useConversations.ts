@@ -8,7 +8,8 @@ import type { Conversation, ConversationListResponse, Platform, ConversationStat
 function playNotificationSound() {
   if (typeof window === 'undefined') return;
 
-  try {
+  const playSynthTone = () => {
+    try {
     const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
 
@@ -18,37 +19,57 @@ function playNotificationSound() {
     }
 
     const master = ctx.createGain();
-    master.gain.setValueAtTime(0.16, ctx.currentTime);
+    master.gain.setValueAtTime(0.28, ctx.currentTime);
     master.connect(ctx.destination);
 
     const playNote = (startAt: number, frequency: number, duration: number) => {
       const oscillator = ctx.createOscillator();
+      const harmonics = ctx.createOscillator();
       const gain = ctx.createGain();
 
       oscillator.type = 'triangle';
       oscillator.frequency.setValueAtTime(frequency, startAt);
+      harmonics.type = 'sine';
+      harmonics.frequency.setValueAtTime(frequency * 2, startAt);
 
       gain.gain.setValueAtTime(0.0001, startAt);
       gain.gain.exponentialRampToValueAtTime(1, startAt + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
 
       oscillator.connect(gain);
+      harmonics.connect(gain);
       gain.connect(master);
 
       oscillator.start(startAt);
+      harmonics.start(startAt);
       oscillator.stop(startAt + duration + 0.01);
+      harmonics.stop(startAt + duration + 0.01);
     };
 
     const t = ctx.currentTime;
-    // Two-note chime with brighter pitch, closer to familiar chat-app tone.
-    playNote(t, 1046.5, 0.11);
-    playNote(t + 0.12, 1318.5, 0.14);
+    // Three short notes for a clearer and louder chat notification.
+    playNote(t, 988.0, 0.1);
+    playNote(t + 0.11, 1318.5, 0.12);
+    playNote(t + 0.25, 1568.0, 0.12);
 
     window.setTimeout(() => {
       ctx.close().catch(() => {});
-    }, 450);
-  } catch {
+    }, 600);
+    } catch {
     // Ignore audio playback errors (autoplay restrictions, unsupported browser, etc.)
+    }
+  };
+
+  try {
+    // If you place a real tone file at /public/sounds/line-message.mp3,
+    // this path gives the closest result to the original app sound.
+    const audio = new Audio('/sounds/line-message.mp3');
+    audio.volume = 1.0;
+    void audio.play().catch(() => {
+      playSynthTone();
+    });
+  } catch {
+    playSynthTone();
   }
 }
 
