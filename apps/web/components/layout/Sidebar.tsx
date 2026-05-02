@@ -10,8 +10,10 @@ import {
   Tag,
   Shield,
   Link2,
+  KeyRound,
   X,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { href: '/dashboard', label: 'แดชบอร์ด', icon: LayoutDashboard },
@@ -22,6 +24,7 @@ const navItems = [
 
 const settingsItems = [
   { href: '/settings/integrations', label: 'เชื่อมต่อระบบ', icon: Link2 },
+  { href: '/settings/password', label: 'เปลี่ยนรหัสผ่าน', icon: KeyRound },
   { href: '/settings/admins', label: 'ผู้ดูแล', icon: Shield },
 ];
 
@@ -32,6 +35,8 @@ interface SidebarProps {
 
 export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const admin = useAuth((s) => s.admin);
+  const isSuperAdmin = admin?.role === 'SUPER_ADMIN';
 
   const inner = (
     <aside className="flex h-full w-64 flex-shrink-0 flex-col border-r border-slate-900/60 bg-slate-950 text-slate-100">
@@ -75,27 +80,31 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
           );
         })}
 
-        <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">ตั้งค่า</p>
-        {settingsItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-gradient-to-r from-orange-500/25 to-orange-400/10 text-orange-100 ring-1 ring-orange-400/30'
-                  : 'text-slate-300 hover:bg-slate-900 hover:text-white'
-              )}
-            >
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              {item.label}
-            </Link>
-          );
-        })}
+        {isSuperAdmin && (
+          <>
+            <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">ตั้งค่า</p>
+            {settingsItems.map((item) => {
+              const isActive = pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-gradient-to-r from-orange-500/25 to-orange-400/10 text-orange-100 ring-1 ring-orange-400/30'
+                      : 'text-slate-300 hover:bg-slate-900 hover:text-white'
+                  )}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
     </aside>
   );

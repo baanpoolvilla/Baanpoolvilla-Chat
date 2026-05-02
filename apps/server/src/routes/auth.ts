@@ -19,6 +19,11 @@ const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+});
+
 const accessTokenExpiresIn: SignOptions['expiresIn'] =
   (process.env.JWT_EXPIRES_IN as SignOptions['expiresIn']) || '1h';
 const refreshTokenExpiresIn: SignOptions['expiresIn'] =
@@ -165,6 +170,48 @@ router.get('/me', authMiddleware(), async (req: AuthRequest, res: Response): Pro
   } catch (error) {
     logger.error('Get profile error', { error });
     res.status(500).json({ error: 'Failed to get profile' });
+  }
+});
+
+router.post('/change-password', authMiddleware(), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const body = changePasswordSchema.parse(req.body);
+
+    if (body.currentPassword === body.newPassword) {
+      res.status(400).json({ error: 'New password must be different from current password' });
+      return;
+    }
+
+    const admin = await prisma.admin.findUnique({
+      where: { id: req.admin!.id },
+      select: { id: true, passwordHash: true },
+    });
+
+    if (!admin) {
+      res.status(404).json({ error: 'Admin not found' });
+      return;
+    }
+
+    const isValidCurrent = await bcrypt.compare(body.currentPassword, admin.passwordHash);
+    if (!isValidCurrent) {
+      res.status(400).json({ error: 'Current password is incorrect' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(body.newPassword, 12);
+    await prisma.admin.update({
+      where: { id: admin.id },
+      data: { passwordHash },
+    });
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    logger.error('Change password error', { error, adminId: req.admin?.id });
+    res.status(500).json({ error: 'Failed to change password' });
   }
 });
 
