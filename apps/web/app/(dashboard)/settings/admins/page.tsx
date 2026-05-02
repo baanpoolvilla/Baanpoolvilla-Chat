@@ -22,6 +22,7 @@ export default function AdminsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Create form
   const [newName, setNewName] = useState('');
@@ -44,6 +45,7 @@ export default function AdminsPage() {
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setMessage(null);
     setCreating(true);
     try {
       await api.post('/api/admins', {
@@ -58,6 +60,7 @@ export default function AdminsPage() {
       setNewPassword('');
       setNewRole('AGENT');
       fetchAdmins();
+      setMessage({ type: 'success', text: 'สร้างผู้ดูแลเรียบร้อยแล้ว' });
     } catch (err: unknown) {
       const message = axios.isAxiosError(err)
         ? (err.response?.data?.error || err.message || 'เกิดข้อผิดพลาด')
@@ -73,6 +76,40 @@ export default function AdminsPage() {
     if (!confirm(`ลบผู้ดูแล ${admin.name}?`)) return;
     await api.delete(`/api/admins/${admin.id}`);
     fetchAdmins();
+    setMessage({ type: 'success', text: `ลบผู้ดูแล ${admin.name} เรียบร้อยแล้ว` });
+  };
+
+  const handleResetPassword = async (admin: Admin) => {
+    if (admin.id === currentAdmin?.id) return;
+
+    setError('');
+    setMessage(null);
+
+    const newPassword = prompt(`ตั้งรหัสผ่านใหม่ของ ${admin.name} (อย่างน้อย 8 ตัวอักษร)`);
+    if (!newPassword) return;
+
+    if (newPassword.length < 8) {
+      setError('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
+      return;
+    }
+
+    const confirmPassword = prompt(`ยืนยันรหัสผ่านใหม่ของ ${admin.name}`);
+    if (!confirmPassword) return;
+
+    if (newPassword !== confirmPassword) {
+      setError('รหัสผ่านยืนยันไม่ตรงกัน');
+      return;
+    }
+
+    try {
+      await api.put(`/api/admins/${admin.id}`, { password: newPassword });
+      setMessage({ type: 'success', text: `รีเซ็ตรหัสผ่านของ ${admin.name} เรียบร้อยแล้ว` });
+    } catch (err: unknown) {
+      const msg = axios.isAxiosError(err)
+        ? (err.response?.data?.error || err.message || 'เกิดข้อผิดพลาด')
+        : (err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+      setError(msg);
+    }
   };
 
   const getRoleBadge = (role: string) => {
@@ -109,6 +146,12 @@ export default function AdminsPage() {
           </button>
         )}
       </div>
+
+      {message && (
+        <div className={`rounded-lg border p-3 ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+          <p className="text-sm">{message.text}</p>
+        </div>
+      )}
 
       {/* Create Form */}
       {showCreate && (
@@ -227,6 +270,12 @@ export default function AdminsPage() {
                   <td className="px-6 py-4 text-right">
                     {currentAdmin?.role === 'SUPER_ADMIN' && admin.id !== currentAdmin?.id && (
                       <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => handleResetPassword(admin)}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          รีเซ็ตรหัสผ่าน
+                        </button>
                         <button
                           onClick={() => handleDelete(admin)}
                           className="text-xs text-red-500 hover:text-red-700"
