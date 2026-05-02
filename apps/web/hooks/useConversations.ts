@@ -5,6 +5,38 @@ import api from '@/lib/api';
 import { useSocket } from './useSocket';
 import type { Conversation, ConversationListResponse, Platform, ConversationStatus } from '@/types';
 
+function playNotificationSound() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+
+    const ctx = new AudioCtx();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+
+    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.2);
+
+    oscillator.onended = () => {
+      ctx.close().catch(() => {});
+    };
+  } catch {
+    // Ignore audio playback errors (autoplay restrictions, unsupported browser, etc.)
+  }
+}
+
 interface ConversationFilters {
   status?: ConversationStatus;
   platform?: Platform;
@@ -66,6 +98,12 @@ export function useConversations(initialFilters?: ConversationFilters) {
           return prev;
         }
 
+        const prevUnread = prev[existingIndex].unreadCount || 0;
+        const nextUnread = updated.unreadCount ?? prevUnread;
+        if (nextUnread > prevUnread) {
+          playNotificationSound();
+        }
+
         const merged = { ...prev[existingIndex], ...updated };
         const next = prev.filter((conversation) => conversation.id !== updated.id);
         return [merged, ...next];
@@ -74,6 +112,9 @@ export function useConversations(initialFilters?: ConversationFilters) {
 
     const offNew = on('conversation:new', (conversation) => {
       setConversations((prev) => {
+        if ((conversation.unreadCount || 0) > 0) {
+          playNotificationSound();
+        }
         const next = prev.filter((item) => item.id !== conversation.id);
         return [conversation, ...next];
       });
