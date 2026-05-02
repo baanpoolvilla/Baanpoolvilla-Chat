@@ -103,8 +103,11 @@ export function useMessages(conversationId: string | null) {
         contentType,
         mediaUrl,
       });
-      // Replace temp with real message from server
-      setMessages((prev) => prev.map((m) => (m.id === tempId ? res.data : m)));
+      // Replace temp with real message from server only when payload shape is valid.
+      const payload = res.data as Partial<Message> | undefined;
+      if (payload?.id && payload?.sentAt && payload?.conversationId) {
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? payload as Message : m)));
+      }
     } catch (error) {
       // Remove temp on failure
       setMessages((prev) => prev.filter((m) => m.id !== tempId));

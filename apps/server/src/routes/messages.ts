@@ -56,7 +56,7 @@ router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
     const data = sendSchema.parse(req.body);
     const { MessageService } = await import('../services/MessageService');
 
-    await MessageService.sendAdminMessage({
+    const sentMessage = await MessageService.sendAdminMessage({
       conversationId: data.conversationId,
       adminId: req.admin!.id,
       content: data.content,
@@ -64,7 +64,7 @@ router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
       mediaUrl: data.mediaUrl,
     });
 
-    res.json({ message: 'Message sent' });
+    res.json(sentMessage);
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Invalid input', details: error.errors });

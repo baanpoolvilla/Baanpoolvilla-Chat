@@ -166,7 +166,7 @@ export class MessageService {
     content: string;
     contentType: ContentType;
     mediaUrl?: string;
-  }): Promise<void> {
+  }): Promise<unknown> {
     try {
       const conversation = await prisma.conversation.findUnique({
         where: { id: params.conversationId },
@@ -245,6 +245,8 @@ export class MessageService {
         conversationId: params.conversationId,
         adminId: params.adminId,
       });
+
+      return fullMessage;
     } catch (error) {
       logger.error('MessageService.sendAdminMessage failed', { error, params });
       throw error;
