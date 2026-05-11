@@ -99,6 +99,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     file: File;
     previewUrl: string;
     contentType: 'IMAGE' | 'VIDEO';
+    uploadedUrl?: string;
   } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -132,11 +133,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     const formData = new FormData();
     formData.append('file', file);
 
-    const res = await api.post('/api/media/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const res = await api.post('/api/media/upload', formData);
 
     const mediaUrl: string | undefined = res.data?.data?.url;
     if (!mediaUrl) {
@@ -162,7 +159,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     try {
       if (pendingAttachment) {
         setIsUploading(true);
-        const mediaUrl = await uploadAttachment(pendingAttachment.file);
+        const mediaUrl = pendingAttachment.uploadedUrl || await uploadAttachment(pendingAttachment.file);
         onSend(trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : '[Image]'), pendingAttachment.contentType, mediaUrl);
         clearAttachment();
       } else {
@@ -224,6 +221,24 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
       previewUrl: URL.createObjectURL(file),
       contentType: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
     });
+
+    setIsUploading(true);
+    uploadAttachment(file)
+      .then((mediaUrl) => {
+        setPendingAttachment((current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            uploadedUrl: mediaUrl,
+          };
+        });
+      })
+      .catch((error) => {
+        console.error('Failed to upload attachment:', error);
+      })
+      .finally(() => {
+        setIsUploading(false);
+      });
 
     e.target.value = '';
   };
