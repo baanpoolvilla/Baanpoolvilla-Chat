@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { Send, Paperclip, MessageSquarePlus, Sticker, Star, Loader2 } from 'lucide-react';
+import { useState, useRef, KeyboardEvent, useEffect, ChangeEvent } from 'react';
+import { Send, Paperclip, MessageSquarePlus, Sticker, Star, Loader2, X } from 'lucide-react';
 import QuickReplyPicker from './QuickReplyPicker';
 import api from '@/lib/api';
 
@@ -95,6 +95,11 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [favoriteStickers, setFavoriteStickers] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    file: File;
+    previewUrl: string;
+    contentType: 'IMAGE' | 'VIDEO';
+  } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const quickReplyBtnRef = useRef<HTMLDivElement>(null);
@@ -115,13 +120,63 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     }
   }, []);
 
-  const handleSend = () => {
+  useEffect(() => {
+    return () => {
+      if (pendingAttachment) {
+        URL.revokeObjectURL(pendingAttachment.previewUrl);
+      }
+    };
+  }, [pendingAttachment]);
+
+  const uploadAttachment = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await api.post('/api/media/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    const mediaUrl: string | undefined = res.data?.data?.url;
+    if (!mediaUrl) {
+      throw new Error('Missing media URL from upload response');
+    }
+
+    return mediaUrl;
+  };
+
+  const clearAttachment = () => {
+    setPendingAttachment((current) => {
+      if (current) {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return null;
+    });
+  };
+
+  const handleSend = async () => {
     const trimmed = content.trim();
-    if (!trimmed || disabled || isUploading) return;
-    onSend(trimmed);
-    setContent('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    if (disabled || isUploading || (!trimmed && !pendingAttachment)) return;
+
+    try {
+      if (pendingAttachment) {
+        setIsUploading(true);
+        const mediaUrl = await uploadAttachment(pendingAttachment.file);
+        onSend(trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : '[Image]'), pendingAttachment.contentType, mediaUrl);
+        clearAttachment();
+      } else {
+        onSend(trimmed);
+      }
+
+      setContent('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -151,7 +206,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     fileInputRef.current?.click();
   };
 
-  const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAttachmentChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -160,31 +215,17 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
       return;
     }
 
-    const contentType = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
-
-    try {
-      setIsUploading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await api.post('/api/media/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      const mediaUrl: string | undefined = res.data?.data?.url;
-      if (!mediaUrl) {
-        throw new Error('Missing media URL from upload response');
-      }
-
-      onSend(contentType === 'VIDEO' ? '[Video]' : '[Image]', contentType, mediaUrl);
-    } catch (error) {
-      console.error('Failed to upload attachment:', error);
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
+    if (pendingAttachment) {
+      URL.revokeObjectURL(pendingAttachment.previewUrl);
     }
+
+    setPendingAttachment({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      contentType: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
+    });
+
+    e.target.value = '';
   };
 
   const handleSendSticker = (packageId: string, stickerId: string) => {
@@ -327,6 +368,41 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
         )}
 
         <div className="relative flex-1">
+          {pendingAttachment && (
+            <div className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2">
+              <div className="flex items-start gap-3">
+                <div className="h-16 w-16 overflow-hidden rounded-lg bg-gray-100">
+                  {pendingAttachment.contentType === 'IMAGE' ? (
+                    <img
+                      src={pendingAttachment.previewUrl}
+                      alt={pendingAttachment.file.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={pendingAttachment.previewUrl}
+                      className="h-full w-full object-cover"
+                      muted
+                    />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold text-gray-700">{pendingAttachment.file.name}</p>
+                  <p className="text-[11px] text-gray-400">
+                    {pendingAttachment.contentType === 'VIDEO' ? 'Video preview ready' : 'Image preview ready'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearAttachment}
+                  className="rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                  title="Remove attachment"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             value={content}
@@ -346,10 +422,10 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
           </span>
           <button
             onClick={handleSend}
-            disabled={!content.trim() || disabled || isUploading}
+            disabled={(!content.trim() && !pendingAttachment) || disabled || isUploading}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Send className="h-4 w-4" />
+            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>
         </div>
       </div>
