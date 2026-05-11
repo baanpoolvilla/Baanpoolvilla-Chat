@@ -2,11 +2,12 @@
 
 import { useState, useRef, KeyboardEvent, useEffect, ChangeEvent } from 'react';
 import { Send, Paperclip, MessageSquarePlus, Sticker, Star, Loader2, X } from 'lucide-react';
+// Loader2 used for isSending spinner on send button
 import QuickReplyPicker from './QuickReplyPicker';
 import api from '@/lib/api';
 
 interface MessageInputProps {
-  onSend: (content: string, contentType?: string, mediaUrl?: string) => void;
+  onSend: (content: string, contentType?: string, mediaUrl?: string) => void | Promise<void>;
   disabled?: boolean;
   platform?: string;
 }
@@ -94,15 +95,13 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [favoriteStickers, setFavoriteStickers] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<{
     file: File;
     previewUrl: string;
     contentType: 'IMAGE' | 'VIDEO';
-    uploadedUrl?: string;
   } | null>(null);
-  const attachmentUploadPromiseRef = useRef<Promise<string> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const quickReplyBtnRef = useRef<HTMLDivElement>(null);
@@ -131,51 +130,48 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     };
   }, [pendingAttachment]);
 
-  const uploadAttachment = async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const res = await api.post('/api/media/upload', formData);
-
-    const mediaUrl: string | undefined = res.data?.data?.url;
-    if (!mediaUrl) {
-      throw new Error('Missing media URL from upload response');
-    }
-
-    return mediaUrl;
-  };
-
   const clearAttachment = () => {
     setPendingAttachment((current) => {
-      if (current) {
-        URL.revokeObjectURL(current.previewUrl);
-      }
+      if (current) URL.revokeObjectURL(current.previewUrl);
       return null;
     });
+    setSendError(null);
   };
 
   const handleSend = async () => {
     const trimmed = content.trim();
     if (disabled || isSending || (!trimmed && !pendingAttachment)) return;
 
+    setSendError(null);
+    setIsSending(true);
     try {
-      setIsSending(true);
       if (pendingAttachment) {
-        const uploadPromise = attachmentUploadPromiseRef.current || uploadAttachment(pendingAttachment.file);
-        attachmentUploadPromiseRef.current = uploadPromise;
-        const mediaUrl = pendingAttachment.uploadedUrl || await uploadPromise;
-        onSend(trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : '[Image]'), pendingAttachment.contentType, mediaUrl);
+        // Upload file now (at send time)
+        const formData = new FormData();
+        formData.append('file', pendingAttachment.file);
+        let mediaUrl: string;
+        try {
+          const uploadRes = await api.post('/api/media/upload', formData);
+          mediaUrl = uploadRes.data?.data?.url;
+          if (!mediaUrl) throw new Error('No URL returned from upload');
+        } catch (uploadErr: unknown) {
+          const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
+          setSendError(`ไม่สามารถอัปโหลดไฟล์: ${msg}`);
+          return;
+        }
+        await onSend(trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : '[Image]'), pendingAttachment.contentType, mediaUrl);
         clearAttachment();
-        attachmentUploadPromiseRef.current = null;
       } else {
-        onSend(trimmed);
+        await onSend(trimmed);
       }
 
       setContent('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Send failed';
+      setSendError(`ส่งข้อความไม่สำเร็จ: ${msg}`);
       console.error('Failed to send message:', error);
     } finally {
       setIsSending(false);
@@ -198,7 +194,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
 
   const handleSelectQuickReply = (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || disabled || isUploading) return;
+    if (!trimmed || disabled) return;
     onSend(trimmed.slice(0, maxChars));
     setShowQuickReplies(false);
   };
@@ -221,32 +217,12 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
       URL.revokeObjectURL(pendingAttachment.previewUrl);
     }
 
+    setSendError(null);
     setPendingAttachment({
       file,
       previewUrl: URL.createObjectURL(file),
       contentType: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
     });
-
-    setIsUploading(true);
-    const uploadPromise = uploadAttachment(file);
-    attachmentUploadPromiseRef.current = uploadPromise;
-    uploadPromise
-      .then((mediaUrl) => {
-        setPendingAttachment((current) => {
-          if (!current) return current;
-          return {
-            ...current,
-            uploadedUrl: mediaUrl,
-          };
-        });
-      })
-      .catch((error) => {
-        console.error('Failed to upload attachment:', error);
-        attachmentUploadPromiseRef.current = null;
-      })
-      .finally(() => {
-        setIsUploading(false);
-      });
 
     e.target.value = '';
   };
@@ -297,11 +273,11 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
 
         <button
           onClick={handleAttachmentPick}
-          disabled={disabled || isUploading}
+          disabled={disabled || isSending}
           className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           title="Attach file"
         >
-          {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+          <Paperclip className="h-5 w-5" />
         </button>
         <input
           ref={fileInputRef}
@@ -412,8 +388,11 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-semibold text-gray-700">{pendingAttachment.file.name}</p>
                   <p className="text-[11px] text-gray-400">
-                    {pendingAttachment.contentType === 'VIDEO' ? 'Video preview ready' : 'Image preview ready'}
+                    {pendingAttachment.contentType === 'VIDEO' ? 'วิดีโอพร้อมส่ง' : 'รูปภาพพร้อมส่ง'}
                   </p>
+                  {sendError && (
+                    <p className="mt-1 text-[11px] font-medium text-red-500">{sendError}</p>
+                  )}
                 </div>
                 <button
                   type="button"
