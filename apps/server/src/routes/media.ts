@@ -2,12 +2,16 @@ import { Router, Request, Response } from 'express';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import multer from 'multer';
 import { LineService } from '../services/platforms/LineService';
 import { logger } from '../lib/logger';
 import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
+
+const uploadDir = path.resolve(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 function resolvePublicBase(req: Request): string {
   const configured =
@@ -27,47 +31,43 @@ function resolvePublicBase(req: Request): string {
   return `${protocol}://${host}`.replace(/\/$/, '');
 }
 
-const uploadDir = path.resolve(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadDir),
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname || '').toLowerCase();
-      const safeExt = ext || '.bin';
-      cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${safeExt}`);
-    },
-  }),
-  limits: {
-    fileSize: 25 * 1024 * 1024,
-  },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-      cb(null, true);
-      return;
-    }
-    cb(new Error('Only image and video uploads are allowed'));
-  },
-});
-
-router.post('/upload', authMiddleware(), upload.single('file'), async (req: Request, res: Response): Promise<void> => {
+// Accept base64-encoded file: { data: string (base64), mimeType: string }
+router.post('/upload', authMiddleware(), async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.file) {
-      res.status(400).json({ error: 'No file uploaded' });
+    const { data: b64, mimeType } = req.body as { data?: string; mimeType?: string };
+
+    if (!b64 || !mimeType) {
+      res.status(400).json({ error: 'Missing data or mimeType' });
       return;
     }
+
+    if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
+      res.status(400).json({ error: 'Only image and video uploads are allowed' });
+      return;
+    }
+
+    const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'bin';
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+    const filePath = path.join(uploadDir, filename);
+
+    const buffer = Buffer.from(b64, 'base64');
+
+    // 25 MB limit
+    if (buffer.byteLength > 25 * 1024 * 1024) {
+      res.status(413).json({ error: 'File too large (max 25 MB)' });
+      return;
+    }
+
+    fs.writeFileSync(filePath, buffer);
 
     const publicBase = resolvePublicBase(req);
-    const publicUrl = `${publicBase}/uploads/${req.file.filename}`;
+    const publicUrl = `${publicBase}/uploads/${filename}`;
 
     res.json({
       data: {
         url: publicUrl,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
+        mimeType,
+        size: buffer.byteLength,
       },
     });
   } catch (error) {

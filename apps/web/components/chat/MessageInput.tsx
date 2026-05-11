@@ -146,12 +146,23 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     setIsSending(true);
     try {
       if (pendingAttachment) {
-        // Upload file now (at send time)
-        const formData = new FormData();
-        formData.append('file', pendingAttachment.file);
+        // Upload file now (at send time) as base64 JSON
         let mediaUrl: string;
         try {
-          const uploadRes = await api.post('/api/media/upload', formData);
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              // Strip the data URL prefix (data:image/png;base64,...)
+              resolve(result.split(',')[1] || '');
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(pendingAttachment.file);
+          });
+          const uploadRes = await api.post('/api/media/upload', {
+            data: base64,
+            mimeType: pendingAttachment.file.type,
+          });
           mediaUrl = uploadRes.data?.data?.url;
           if (!mediaUrl) throw new Error('No URL returned from upload');
         } catch (uploadErr: unknown) {
