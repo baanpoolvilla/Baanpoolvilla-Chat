@@ -10,6 +10,11 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    // Let the browser set multipart/form-data with the proper boundary.
+    delete config.headers['Content-Type'];
+  }
+
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('accessToken');
     if (token) {
