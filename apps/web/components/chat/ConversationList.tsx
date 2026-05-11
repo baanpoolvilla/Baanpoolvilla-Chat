@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import ConversationItem from './ConversationItem';
 import type { Conversation, ConversationStatus, Platform } from '@/types';
@@ -33,7 +33,9 @@ const platformOptions: { value: Platform | ''; label: string }[] = [
 export default function ConversationList({ activeId, onSelect, registerContactRenamer }: ConversationListProps) {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const { conversations, isLoading, filters, setFilters, updateContactName, markConversationRead } = useConversations();
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const { conversations, isLoading, isLoadingMore, hasMore, filters, setFilters, loadMore, updateContactName, markConversationRead } = useConversations();
 
   useEffect(() => {
     if (registerContactRenamer) {
@@ -57,6 +59,31 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
     markConversationRead(activeId);
     api.post(`/api/conversations/${activeId}/read`).catch(() => {});
   }, [activeId, conversations, markConversationRead]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          loadMore();
+        }
+      },
+      {
+        root: listContainerRef.current,
+        rootMargin: '200px 0px',
+        threshold: 0,
+      }
+    );
+
+    observer.observe(target);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, loadMore, conversations.length]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -139,7 +166,7 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={listContainerRef} className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
@@ -161,6 +188,11 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
                 }}
               />
             ))}
+            {hasMore && (
+              <div ref={loadMoreRef} className="py-3 text-center text-xs text-gray-400">
+                {isLoadingMore ? 'Loading more conversations...' : 'Scroll down to load more'}
+              </div>
+            )}
           </div>
         )}
       </div>

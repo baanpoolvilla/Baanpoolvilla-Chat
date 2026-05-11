@@ -88,6 +88,7 @@ export function useConversations(initialFilters?: ConversationFilters) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [filters, setFilters] = useState<ConversationFilters>(initialFilters || {});
   const { on } = useSocket();
 
@@ -99,9 +100,14 @@ export function useConversations(initialFilters?: ConversationFilters) {
     });
   }, []);
 
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (pageNum = 1, append = false) => {
     try {
-      setIsLoading(true);
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
+
       const params = new URLSearchParams();
       if (filters.status) params.set('status', filters.status);
       if (filters.platform) params.set('platform', filters.platform);
@@ -109,21 +115,46 @@ export function useConversations(initialFilters?: ConversationFilters) {
       if (filters.adminId) params.set('adminId', filters.adminId);
       if (filters.search) params.set('search', filters.search);
       if (filters.isBot) params.set('isBot', filters.isBot);
-      if (filters.page) params.set('page', filters.page.toString());
+      params.set('page', pageNum.toString());
       if (filters.limit) params.set('limit', filters.limit.toString());
 
       const response = await api.get<ConversationListResponse>(`/api/conversations?${params.toString()}`);
-      setConversations(sortByLatestMessage(response.data.conversations));
+      const incoming = response.data.conversations;
+
+      setConversations((prev) => {
+        if (!append) {
+          return sortByLatestMessage(incoming);
+        }
+
+        const existingIds = new Set(prev.map((conversation) => conversation.id));
+        const uniqueIncoming = incoming.filter((conversation) => !existingIds.has(conversation.id));
+        return [...prev, ...uniqueIncoming];
+      });
       setPagination(response.data.pagination);
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
     } finally {
-      setIsLoading(false);
+      if (append) {
+        setIsLoadingMore(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, [filters, sortByLatestMessage]);
 
   useEffect(() => {
-    fetchConversations();
+    fetchConversations(1, false);
+  }, [fetchConversations]);
+
+  const loadMore = useCallback(() => {
+    if (isLoading || isLoadingMore) return;
+    if (pagination.page >= pagination.totalPages) return;
+
+    fetchConversations(pagination.page + 1, true);
+  }, [fetchConversations, isLoading, isLoadingMore, pagination.page, pagination.totalPages]);
+
+  const refetchLatest = useCallback(() => {
+    fetchConversations(1, false);
   }, [fetchConversations]);
 
   useEffect(() => {
@@ -131,6 +162,10 @@ export function useConversations(initialFilters?: ConversationFilters) {
       setConversations((prev) => {
         const existingIndex = prev.findIndex((conversation) => conversation.id === updated.id);
         if (existingIndex === -1) {
+          refetchLatest();
+          if ((updated.unreadCount || 0) > 0) {
+            playNotificationSound();
+          }
           return prev;
         }
 
@@ -156,11 +191,37 @@ export function useConversations(initialFilters?: ConversationFilters) {
       });
     });
 
+    const offNotify = on('admin:notify', () => {
+      playNotificationSound();
+      refetchLatest();
+    });
+
     return () => {
       offUpdated();
       offNew();
+      offNotify();
     };
-  }, [on, sortByLatestMessage]);
+  }, [on, refetchLatest, sortByLatestMessage]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      refetchLatest();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refetchLatest();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refetchLatest]);
 
   const updateContactName = useCallback((contactId: string, displayName: string) => {
     setConversations((prev) =>
@@ -185,10 +246,13 @@ export function useConversations(initialFilters?: ConversationFilters) {
   return {
     conversations,
     pagination,
+    hasMore: pagination.page < pagination.totalPages,
     isLoading,
+    isLoadingMore,
     filters,
     setFilters,
-    refetch: fetchConversations,
+    loadMore,
+    refetch: refetchLatest,
     updateContactName,
     markConversationRead,
   };

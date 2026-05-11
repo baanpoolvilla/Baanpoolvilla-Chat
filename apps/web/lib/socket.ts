@@ -5,19 +5,30 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 let socket: TypedSocket | null = null;
 
+function readAccessToken(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  return localStorage.getItem('accessToken');
+}
+
 export function getSocket(): TypedSocket {
   if (!socket) {
     const url = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
 
     socket = io(url, {
-      auth: { token },
+      // Use latest token for every (re)connect attempt to avoid stale auth.
+      auth: (cb) => cb({ token: readAccessToken() }),
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 10000,
     }) as TypedSocket;
+
+    socket.io.on('reconnect_attempt', () => {
+      socket!.auth = { token: readAccessToken() };
+    });
   }
   return socket;
 }
