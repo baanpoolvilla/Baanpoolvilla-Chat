@@ -23,6 +23,8 @@ services:
       - "3001"
     ports:
       - "3002:3001"
+    volumes:
+      - uploads_data:/app/uploads
     networks:
       chat-net:
         aliases:
@@ -46,3 +48,6 @@ services:
 networks:
   chat-net:
     driver: bridge
+
+volumes:
+  uploads_data:

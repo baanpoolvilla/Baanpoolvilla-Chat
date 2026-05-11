@@ -46,12 +46,12 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({
-  limit: '10mb',
+  limit: '50mb',
   verify: (req, _res, buf) => {
     (req as RequestWithRawBody).rawBody = buf.toString('utf8');
   },
 }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 // ─── Rate limiting ──────────────────────────────────────
