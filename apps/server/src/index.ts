@@ -25,6 +25,9 @@ for (const envVar of requiredEnvVars) {
 const app = express();
 const server = http.createServer(app);
 
+// Respect X-Forwarded-* headers behind load balancers/reverse proxies.
+app.set('trust proxy', true);
+
 // ─── Middleware ──────────────────────────────────────────
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .split(',')

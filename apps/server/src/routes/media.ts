@@ -9,6 +9,24 @@ import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
+function resolvePublicBase(req: Request): string {
+  const configured =
+    process.env.PUBLIC_BASE_URL ||
+    process.env.API_PUBLIC_URL ||
+    process.env.NEXT_PUBLIC_API_URL;
+
+  if (configured) {
+    return configured.replace(/\/api\/?$/, '').replace(/\/$/, '');
+  }
+
+  const forwardedProto = req.header('x-forwarded-proto')?.split(',')[0]?.trim();
+  const forwardedHost = req.header('x-forwarded-host')?.split(',')[0]?.trim();
+  const protocol = forwardedProto || req.protocol;
+  const host = forwardedHost || req.get('host');
+
+  return `${protocol}://${host}`.replace(/\/$/, '');
+}
+
 const uploadDir = path.resolve(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -42,13 +60,8 @@ router.post('/upload', authMiddleware(), upload.single('file'), async (req: Requ
       return;
     }
 
-    const publicBase =
-      process.env.PUBLIC_BASE_URL ||
-      process.env.API_PUBLIC_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      `${req.protocol}://${req.get('host')}`;
-
-    const publicUrl = `${publicBase.replace(/\/$/, '')}/uploads/${req.file.filename}`;
+    const publicBase = resolvePublicBase(req);
+    const publicUrl = `${publicBase}/uploads/${req.file.filename}`;
 
     res.json({
       data: {
