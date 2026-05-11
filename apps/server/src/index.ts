@@ -2,6 +2,7 @@ import 'dotenv/config';
 import http from 'http';
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import { logger } from './lib/logger';
 import { initSocketIO } from './socket';
 import routes from './routes';
@@ -48,6 +49,7 @@ app.use(express.json({
   },
 }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 // ─── Rate limiting ──────────────────────────────────────
 app.use('/api', apiLimiter);

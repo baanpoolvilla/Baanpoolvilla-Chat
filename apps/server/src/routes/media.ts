@@ -1,9 +1,67 @@
 import { Router, Request, Response } from 'express';
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import multer from 'multer';
 import { LineService } from '../services/platforms/LineService';
 import { logger } from '../lib/logger';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
+
+const uploadDir = path.resolve(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      const safeExt = ext || '.bin';
+      cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${safeExt}`);
+    },
+  }),
+  limits: {
+    fileSize: 25 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Only image and video uploads are allowed'));
+  },
+});
+
+router.post('/upload', authMiddleware(), upload.single('file'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    const publicBase =
+      process.env.PUBLIC_BASE_URL ||
+      process.env.API_PUBLIC_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      `${req.protocol}://${req.get('host')}`;
+
+    const publicUrl = `${publicBase.replace(/\/$/, '')}/uploads/${req.file.filename}`;
+
+    res.json({
+      data: {
+        url: publicUrl,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to upload media', { error });
+    res.status(500).json({ error: 'Failed to upload media' });
+  }
+});
 
 router.get('/line/:messageId', async (req: Request, res: Response): Promise<void> => {
   const { messageId } = req.params;

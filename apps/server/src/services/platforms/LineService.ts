@@ -5,6 +5,8 @@ import prisma from '../../lib/prisma';
 
 export class LineService {
   private static readonly API_URL = 'https://api.line.me/v2/bot/message';
+  private static readonly DEFAULT_VIDEO_PREVIEW_URL =
+    process.env.LINE_VIDEO_PREVIEW_URL || 'https://placehold.co/640x360/png?text=Video';
   private static readonly SUPPORTED_STICKERS = new Set<string>([
     ...Array.from({ length: 14 }, (_, i) => `1/${i + 1}`),
     ...Array.from({ length: 15 }, (_, i) => `2/${i + 15}`),  // IDs 15-29
@@ -52,7 +54,7 @@ export class LineService {
           message = {
             type: 'video',
             originalContentUrl: mediaUrl,
-            previewImageUrl: mediaUrl,
+            previewImageUrl: LineService.DEFAULT_VIDEO_PREVIEW_URL,
           };
           break;
         case 'STICKER':

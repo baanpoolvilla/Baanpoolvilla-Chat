@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { Send, Paperclip, MessageSquarePlus, Sticker, Star } from 'lucide-react';
+import { Send, Paperclip, MessageSquarePlus, Sticker, Star, Loader2 } from 'lucide-react';
 import QuickReplyPicker from './QuickReplyPicker';
+import api from '@/lib/api';
 
 interface MessageInputProps {
   onSend: (content: string, contentType?: string, mediaUrl?: string) => void;
@@ -93,7 +94,9 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [favoriteStickers, setFavoriteStickers] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const quickReplyBtnRef = useRef<HTMLDivElement>(null);
   const stickerBtnRef = useRef<HTMLDivElement>(null);
   const maxChars = platform ? PLATFORM_LIMITS[platform] || 5000 : 5000;
@@ -114,7 +117,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
 
   const handleSend = () => {
     const trimmed = content.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed || disabled || isUploading) return;
     onSend(trimmed);
     setContent('');
     if (textareaRef.current) {
@@ -137,12 +140,51 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
   };
 
   const handleSelectQuickReply = (text: string) => {
-    setContent(text.slice(0, maxChars));
+    const trimmed = text.trim();
+    if (!trimmed || disabled || isUploading) return;
+    onSend(trimmed.slice(0, maxChars));
     setShowQuickReplies(false);
-    setTimeout(() => {
-      textareaRef.current?.focus();
-      handleInput();
-    }, 0);
+  };
+
+  const handleAttachmentPick = () => {
+    if (disabled || isUploading) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      e.target.value = '';
+      return;
+    }
+
+    const contentType = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+
+    try {
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await api.post('/api/media/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const mediaUrl: string | undefined = res.data?.data?.url;
+      if (!mediaUrl) {
+        throw new Error('Missing media URL from upload response');
+      }
+
+      onSend(contentType === 'VIDEO' ? '[Video]' : '[Image]', contentType, mediaUrl);
+    } catch (error) {
+      console.error('Failed to upload attachment:', error);
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
   };
 
   const handleSendSticker = (packageId: string, stickerId: string) => {
@@ -190,11 +232,20 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
         </div>
 
         <button
+          onClick={handleAttachmentPick}
+          disabled={disabled || isUploading}
           className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           title="Attach file"
         >
-          <Paperclip className="h-5 w-5" />
+          {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
         </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          className="hidden"
+          onChange={handleAttachmentChange}
+        />
 
         {platform === 'LINE' && (
           <div ref={stickerBtnRef} className="relative flex-shrink-0">
@@ -295,7 +346,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
           </span>
           <button
             onClick={handleSend}
-            disabled={!content.trim() || disabled}
+            disabled={!content.trim() || disabled || isUploading}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="h-4 w-4" />
