@@ -95,12 +95,14 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [favoriteStickers, setFavoriteStickers] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{
     file: File;
     previewUrl: string;
     contentType: 'IMAGE' | 'VIDEO';
     uploadedUrl?: string;
   } | null>(null);
+  const attachmentUploadPromiseRef = useRef<Promise<string> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const quickReplyBtnRef = useRef<HTMLDivElement>(null);
@@ -154,14 +156,17 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
 
   const handleSend = async () => {
     const trimmed = content.trim();
-    if (disabled || isUploading || (!trimmed && !pendingAttachment)) return;
+    if (disabled || isSending || (!trimmed && !pendingAttachment)) return;
 
     try {
+      setIsSending(true);
       if (pendingAttachment) {
-        setIsUploading(true);
-        const mediaUrl = pendingAttachment.uploadedUrl || await uploadAttachment(pendingAttachment.file);
+        const uploadPromise = attachmentUploadPromiseRef.current || uploadAttachment(pendingAttachment.file);
+        attachmentUploadPromiseRef.current = uploadPromise;
+        const mediaUrl = pendingAttachment.uploadedUrl || await uploadPromise;
         onSend(trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : '[Image]'), pendingAttachment.contentType, mediaUrl);
         clearAttachment();
+        attachmentUploadPromiseRef.current = null;
       } else {
         onSend(trimmed);
       }
@@ -173,7 +178,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     } catch (error) {
       console.error('Failed to send message:', error);
     } finally {
-      setIsUploading(false);
+      setIsSending(false);
     }
   };
 
@@ -199,7 +204,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
   };
 
   const handleAttachmentPick = () => {
-    if (disabled || isUploading) return;
+    if (disabled || isSending) return;
     fileInputRef.current?.click();
   };
 
@@ -223,7 +228,9 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     });
 
     setIsUploading(true);
-    uploadAttachment(file)
+    const uploadPromise = uploadAttachment(file);
+    attachmentUploadPromiseRef.current = uploadPromise;
+    uploadPromise
       .then((mediaUrl) => {
         setPendingAttachment((current) => {
           if (!current) return current;
@@ -235,6 +242,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
       })
       .catch((error) => {
         console.error('Failed to upload attachment:', error);
+        attachmentUploadPromiseRef.current = null;
       })
       .finally(() => {
         setIsUploading(false);
@@ -437,10 +445,10 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
           </span>
           <button
             onClick={handleSend}
-            disabled={(!content.trim() && !pendingAttachment) || disabled || isUploading}
+            disabled={(!content.trim() && !pendingAttachment) || disabled || isSending}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>
         </div>
       </div>
