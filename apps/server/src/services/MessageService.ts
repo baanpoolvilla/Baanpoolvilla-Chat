@@ -57,15 +57,9 @@ export class MessageService {
           });
         } else {
           contact = platformContact.contact;
-          if (incoming.displayName && !contact.isNameCustomized && incoming.displayName !== contact.displayName) {
-            contact = await tx.contact.update({
-              where: { id: contact.id },
-              data: {
-                displayName: incoming.displayName,
-                avatarUrl: incoming.avatarUrl || contact.avatarUrl,
-              },
-            });
-          } else if (incoming.avatarUrl && incoming.avatarUrl !== contact.avatarUrl) {
+          // Never overwrite displayName from webhook — admin renames must be preserved.
+          // Only sync avatarUrl when the platform provides a new one.
+          if (incoming.avatarUrl && incoming.avatarUrl !== contact.avatarUrl) {
             contact = await tx.contact.update({
               where: { id: contact.id },
               data: { avatarUrl: incoming.avatarUrl },
