@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "Contact" ADD COLUMN "isNameCustomized" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS "isNameCustomized" BOOLEAN NOT NULL DEFAULT false;
