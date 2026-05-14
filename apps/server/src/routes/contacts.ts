@@ -88,13 +88,12 @@ const updateContactSchema = z.object({
 router.patch('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateContactSchema.parse(req.body);
-    const updateData: Record<string, unknown> = { ...data };
-    if (data.displayName !== undefined) {
-      updateData.isNameCustomized = true;
-    }
     const contact = await prisma.contact.update({
       where: { id: req.params.id },
-      data: updateData,
+      data: {
+        ...data,
+        ...(data.displayName !== undefined ? { isNameCustomized: true } : {}),
+      },
       include: { platformLinks: true, tags: { include: { tag: true } } },
     });
     res.json(contact);

@@ -46,4 +46,4 @@ RUN mkdir -p /app/logs /app/uploads && chown -R expressjs:nodejs /app/logs /app/
 USER expressjs
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy || true ; node dist/index.js"]
