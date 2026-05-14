@@ -41,9 +41,9 @@ COPY --chown=expressjs:nodejs prisma ./prisma
 COPY --chown=expressjs:nodejs package.json ./
 
 # Winston writes log files under /app/logs in production.
-RUN mkdir -p /app/logs && chown -R expressjs:nodejs /app/logs
+RUN mkdir -p /app/logs /app/uploads && chown -R expressjs:nodejs /app/logs /app/uploads
 
 USER expressjs
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

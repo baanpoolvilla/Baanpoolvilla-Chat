@@ -28,17 +28,18 @@ enum AdminRole {
 }
 
 model Contact {
-  id            String            @id @default(cuid())
-  displayName   String
-  avatarUrl     String?
-  phone         String?
-  email         String?
-  notes         String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  platformLinks PlatformContact[]
-  conversations Conversation[]
-  tags          ContactTag[]
+  id              String            @id @default(cuid())
+  displayName     String
+  isNameCustomized Boolean          @default(false)
+  avatarUrl       String?
+  phone           String?
+  email           String?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  platformLinks   PlatformContact[]
+  conversations   Conversation[]
+  tags            ContactTag[]
 }
 
 model PlatformContact {
