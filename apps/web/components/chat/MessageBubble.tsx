@@ -4,14 +4,17 @@ import { memo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, Platform } from '@/types';
 import { format } from 'date-fns';
-import { Bot, Download, X } from 'lucide-react';
+import { Bot, Download, Reply, X } from 'lucide-react';
 import PlatformBadge from '@/components/common/PlatformBadge';
+import { getReplyPreviewText, getReplySenderLabel } from '@/lib/messageReply';
 
 interface MessageBubbleProps {
   message: Message;
   customerName?: string;
   customerAvatarUrl?: string;
   customerPlatform?: Platform;
+  canReply?: boolean;
+  onReply?: (message: Message) => void;
 }
 
 function MessageBubble({
@@ -19,6 +22,8 @@ function MessageBubble({
   customerName,
   customerAvatarUrl,
   customerPlatform,
+  canReply = false,
+  onReply,
 }: MessageBubbleProps) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const isCustomer = message.senderType === 'CUSTOMER';
@@ -41,7 +46,7 @@ function MessageBubble({
   return (
     <div
       className={cn(
-        'flex gap-1.5 message-enter sm:gap-2',
+        'group flex gap-1.5 message-enter sm:gap-2',
         isCustomer ? 'justify-start' : 'justify-end'
       )}
     >
@@ -55,35 +60,70 @@ function MessageBubble({
         </div>
       )}
 
-      <div
-        className={cn(
-          'max-w-[82%] rounded-2xl px-3 py-2.5 sm:max-w-[70%] sm:px-4 sm:py-2',
-          isCustomer && 'bg-gray-100 text-gray-900 rounded-bl-md',
-          isAdmin && 'bg-brand-600 text-white rounded-br-md',
-          isBot && 'bg-purple-100 text-purple-900 rounded-br-md'
+      <div className="relative">
+        {canReply && onReply && (
+          <button
+            type="button"
+            onClick={() => onReply(message)}
+            className={cn(
+              'absolute z-10 rounded-full border border-gray-200 bg-white p-1.5 text-gray-500 shadow-sm transition hover:border-brand-300 hover:text-brand-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100',
+              isCustomer ? '-right-2 -top-2' : '-left-2 -top-2'
+            )}
+            title="Reply"
+          >
+            <Reply className="h-3.5 w-3.5" />
+          </button>
         )}
-      >
-        {/* Sender label */}
-        <div className={cn(
-          'mb-0.5 flex items-center gap-1 text-[9px] sm:text-[10px]',
-          isCustomer ? 'text-gray-400' : isBot ? 'text-purple-400' : 'text-brand-200'
-        )}>
-          {isBot && <Bot className="h-3 w-3" />}
-          {isBot ? 'AI Bot' : isAdmin ? message.admin?.name || 'Admin' : fallbackCustomerName}
-          {isCustomer && customerPlatform && (
-            <PlatformBadge platform={customerPlatform} compact showLabel={false} className="ml-1" />
+
+        <div
+          className={cn(
+            'max-w-[82%] rounded-2xl px-3 py-2.5 sm:max-w-[70%] sm:px-4 sm:py-2',
+            isCustomer && 'bg-gray-100 text-gray-900 rounded-bl-md',
+            isAdmin && 'bg-brand-600 text-white rounded-br-md',
+            isBot && 'bg-purple-100 text-purple-900 rounded-br-md'
           )}
-        </div>
+        >
+          {/* Sender label */}
+          <div className={cn(
+            'mb-0.5 flex items-center gap-1 text-[9px] sm:text-[10px]',
+            isCustomer ? 'text-gray-400' : isBot ? 'text-purple-400' : 'text-brand-200'
+          )}>
+            {isBot && <Bot className="h-3 w-3" />}
+            {isBot ? 'AI Bot' : isAdmin ? message.admin?.name || 'Admin' : fallbackCustomerName}
+            {isCustomer && customerPlatform && (
+              <PlatformBadge platform={customerPlatform} compact showLabel={false} className="ml-1" />
+            )}
+          </div>
 
-        {/* Content */}
-        {renderContent(message, setLightboxUrl)}
+          {message.replyToMessage && (
+            <div className={cn(
+              'mb-2 rounded-xl border-l-2 px-3 py-2',
+              isCustomer && 'border-gray-300 bg-white/80 text-gray-700',
+              isAdmin && 'border-white/40 bg-white/10 text-brand-50',
+              isBot && 'border-purple-300 bg-purple-50 text-purple-800'
+            )}>
+              <p className={cn(
+                'text-[10px] font-semibold',
+                isCustomer ? 'text-gray-500' : isAdmin ? 'text-brand-100' : 'text-purple-500'
+              )}>
+                {getReplySenderLabel(message.replyToMessage, customerName)}
+              </p>
+              <p className="mt-0.5 line-clamp-2 text-xs">
+                {getReplyPreviewText(message.replyToMessage)}
+              </p>
+            </div>
+          )}
 
-        {/* Timestamp */}
-        <div className={cn(
-          'mt-1 text-[10px]',
-          isCustomer ? 'text-gray-400' : isBot ? 'text-purple-400' : 'text-brand-200'
-        )}>
-          {format(new Date(message.sentAt), 'HH:mm')}
+          {/* Content */}
+          {renderContent(message, setLightboxUrl)}
+
+          {/* Timestamp */}
+          <div className={cn(
+            'mt-1 text-[10px]',
+            isCustomer ? 'text-gray-400' : isBot ? 'text-purple-400' : 'text-brand-200'
+          )}>
+            {format(new Date(message.sentAt), 'HH:mm')}
+          </div>
         </div>
       </div>
 

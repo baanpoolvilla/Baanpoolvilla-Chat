@@ -106,6 +106,7 @@ export interface Message {
   conversationId: string;
   senderType: SenderType;
   adminId?: string;
+  replyToMessageId?: string | null;
   content: string;
   contentType: ContentType;
   mediaUrl?: string;
@@ -114,7 +115,20 @@ export interface Message {
   isRead: boolean;
   sentAt: string;
   admin?: Pick<Admin, 'id' | 'name' | 'avatar'>;
+  replyToMessage?: MessageReplyPreview | null;
   conversation?: Conversation;
+}
+
+export interface MessageReplyPreview {
+  id: string;
+  conversationId: string;
+  senderType: SenderType;
+  adminId?: string;
+  content: string;
+  contentType: ContentType;
+  mediaUrl?: string;
+  sentAt: string;
+  admin?: Pick<Admin, 'id' | 'name' | 'avatar'>;
 }
 
 export interface Broadcast {
@@ -222,7 +236,7 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   'conversation:join': (conversationId: string) => void;
   'conversation:leave': (conversationId: string) => void;
-  'message:send': (data: { conversationId: string; content: string; contentType?: ContentType; mediaUrl?: string }) => void;
+  'message:send': (data: { conversationId: string; content: string; contentType?: ContentType; mediaUrl?: string; replyToMessageId?: string }) => void;
   'conversation:read': (conversationId: string) => void;
   'conversation:assign': (data: { conversationId: string; adminId: string }) => void;
   'conversation:typing': (conversationId: string) => void;

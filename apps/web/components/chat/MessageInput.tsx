@@ -5,11 +5,16 @@ import { Send, Paperclip, MessageSquarePlus, Sticker, Star, Loader2, X } from 'l
 // Loader2 used for isSending spinner on send button
 import QuickReplyPicker from './QuickReplyPicker';
 import api from '@/lib/api';
+import type { Message } from '@/types';
+import { getReplyPreviewText, getReplySenderLabel } from '@/lib/messageReply';
 
 interface MessageInputProps {
-  onSend: (content: string, contentType?: string, mediaUrl?: string) => void | Promise<void>;
+  onSend: (content: string, contentType?: string, mediaUrl?: string, replyToMessageId?: string) => void | Promise<void>;
   disabled?: boolean;
   platform?: string;
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
+  customerName?: string;
 }
 
 const PLATFORM_LIMITS: Record<string, number> = {
@@ -90,7 +95,7 @@ const LINE_STICKERS = [
 
 const STICKER_FAVORITES_KEY = 'lineStickerFavorites';
 
-export default function MessageInput({ onSend, disabled, platform }: MessageInputProps) {
+export default function MessageInput({ onSend, disabled, platform, replyingTo, onCancelReply, customerName }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
@@ -170,10 +175,10 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
           setSendError(`ไม่สามารถอัปโหลดไฟล์: ${msg}`);
           return;
         }
-        await onSend(trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : '[Image]'), pendingAttachment.contentType, mediaUrl);
+        await onSend(trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : '[Image]'), pendingAttachment.contentType, mediaUrl, replyingTo?.id);
         clearAttachment();
       } else {
-        await onSend(trimmed);
+        await onSend(trimmed, undefined, undefined, replyingTo?.id);
       }
 
       setContent('');
@@ -203,11 +208,16 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     }
   };
 
-  const handleSelectQuickReply = (text: string) => {
+  const handleSelectQuickReply = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || disabled) return;
-    onSend(trimmed.slice(0, maxChars));
-    setShowQuickReplies(false);
+    try {
+      await onSend(trimmed.slice(0, maxChars), undefined, undefined, replyingTo?.id);
+      setShowQuickReplies(false);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Send failed';
+      setSendError(`ส่งข้อความไม่สำเร็จ: ${msg}`);
+    }
   };
 
   const handleAttachmentPick = () => {
@@ -238,10 +248,15 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
     e.target.value = '';
   };
 
-  const handleSendSticker = (packageId: string, stickerId: string) => {
+  const handleSendSticker = async (packageId: string, stickerId: string) => {
     if (disabled || platform !== 'LINE') return;
-    onSend(`[Sticker: ${packageId}/${stickerId}]`, 'STICKER');
-    setShowStickerPicker(false);
+    try {
+      await onSend(`[Sticker: ${packageId}/${stickerId}]`, 'STICKER', undefined, replyingTo?.id);
+      setShowStickerPicker(false);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Send failed';
+      setSendError(`ส่งข้อความไม่สำเร็จ: ${msg}`);
+    }
   };
 
   const stickerKey = (packageId: string, stickerId: string) => `${packageId}/${stickerId}`;
@@ -378,6 +393,31 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
         )}
 
         <div className="relative flex-1">
+          {replyingTo && (
+            <div className="mb-2 rounded-xl border border-brand-100 bg-brand-50/70 p-2">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold text-brand-700">
+                    Replying to {getReplySenderLabel(replyingTo, customerName)}
+                  </p>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">
+                    {getReplyPreviewText(replyingTo)}
+                  </p>
+                </div>
+                {onCancelReply && (
+                  <button
+                    type="button"
+                    onClick={onCancelReply}
+                    className="rounded-md p-1 text-gray-400 hover:bg-white/80 hover:text-gray-600"
+                    title="Cancel reply"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {pendingAttachment && (
             <div className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2">
               <div className="flex items-start gap-3">

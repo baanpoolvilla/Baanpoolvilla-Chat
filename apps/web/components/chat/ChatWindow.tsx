@@ -1,10 +1,10 @@
 'use client';
 
-import { useRef, useEffect, useLayoutEffect } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
-import type { Conversation } from '@/types';
+import type { Conversation, Message } from '@/types';
 import { ChevronLeft, Info, Loader2, X } from 'lucide-react';
 import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
@@ -25,6 +25,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldJumpToBottomRef = useRef(true);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
 
@@ -34,6 +35,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
   useEffect(() => {
     shouldJumpToBottomRef.current = true;
+    setReplyingTo(null);
   }, [conversationId]);
 
   useLayoutEffect(() => {
@@ -59,8 +61,10 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     }
   };
 
-  const handleSend = async (content: string, contentType?: string, mediaUrl?: string) => {
-    await sendMessage(content, contentType, mediaUrl);
+  const handleSend = async (content: string, contentType?: string, mediaUrl?: string, replyToMessageId?: string) => {
+    const replyTarget = replyingTo && replyingTo.id === replyToMessageId ? replyingTo : null;
+    await sendMessage(content, contentType, mediaUrl, replyTarget);
+    setReplyingTo(null);
   };
 
   return (
@@ -145,6 +149,8 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                 customerName={conversation?.contact?.displayName}
                 customerAvatarUrl={conversation?.contact?.avatarUrl}
                 customerPlatform={conversation?.platform}
+                canReply={canModifyChat}
+                onReply={setReplyingTo}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -157,6 +163,9 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
         <MessageInput
           onSend={handleSend}
           platform={conversation?.platform}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+          customerName={conversation?.contact?.displayName}
         />
       ) : (
         <div className="border-t border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">

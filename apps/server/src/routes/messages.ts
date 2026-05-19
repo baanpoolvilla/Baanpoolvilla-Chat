@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middleware/auth';
 import { logger } from '../lib/logger';
+import { messageWithReplySelect } from '../services/MessageService';
 
 const router = Router();
 
@@ -19,9 +20,7 @@ router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
     const [messages, total] = await Promise.all([
       prisma.message.findMany({
         where,
-        include: {
-          admin: { select: { id: true, name: true, avatar: true } },
-        },
+        select: messageWithReplySelect,
         orderBy: { sentAt: 'desc' },
         skip,
         take: parseInt(limit as string, 10),
@@ -49,6 +48,7 @@ const sendSchema = z.object({
   content: z.string().min(1),
   contentType: z.enum(['TEXT', 'IMAGE', 'VIDEO', 'AUDIO', 'FILE', 'STICKER', 'LOCATION', 'TEMPLATE']).default('TEXT'),
   mediaUrl: z.string().url().optional(),
+  replyToMessageId: z.string().cuid().optional(),
 });
 
 router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -62,12 +62,17 @@ router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response)
       content: data.content,
       contentType: data.contentType,
       mediaUrl: data.mediaUrl,
+      replyToMessageId: data.replyToMessageId,
     });
 
     res.json(sentMessage);
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    if (error instanceof Error && error.message === 'Reply target not found') {
+      res.status(400).json({ error: 'Reply target not found' });
       return;
     }
     logger.error('Send message error', { error });

@@ -5,6 +5,35 @@ import { logger } from '../lib/logger';
 import { AiBotService } from './AiBotService';
 import { conversationSummarySelect } from './ConversationService';
 
+export const messageReplyPreviewSelect = {
+  id: true,
+  conversationId: true,
+  senderType: true,
+  adminId: true,
+  content: true,
+  contentType: true,
+  mediaUrl: true,
+  sentAt: true,
+  admin: { select: { id: true, name: true, avatar: true } },
+} as const;
+
+export const messageWithReplySelect = {
+  id: true,
+  conversationId: true,
+  senderType: true,
+  adminId: true,
+  replyToMessageId: true,
+  content: true,
+  contentType: true,
+  mediaUrl: true,
+  metadata: true,
+  platformMsgId: true,
+  isRead: true,
+  sentAt: true,
+  admin: { select: { id: true, name: true, avatar: true } },
+  replyToMessage: { select: messageReplyPreviewSelect },
+} as const;
+
 export interface IncomingMessage {
   platform: Platform;
   platformUid: string;
@@ -112,6 +141,7 @@ export class MessageService {
             metadata: incoming.metadata as Prisma.InputJsonValue | undefined,
             platformMsgId: incoming.platformMsgId,
           },
+          select: messageWithReplySelect,
         });
 
         return { contact, conversation, message };
@@ -159,6 +189,7 @@ export class MessageService {
     content: string;
     contentType: ContentType;
     mediaUrl?: string;
+    replyToMessageId?: string;
   }): Promise<unknown> {
     try {
       const conversation = await prisma.conversation.findUnique({
@@ -175,15 +206,31 @@ export class MessageService {
       }
 
       const message = await prisma.$transaction(async (tx) => {
+        if (params.replyToMessageId) {
+          const replyTarget = await tx.message.findFirst({
+            where: {
+              id: params.replyToMessageId,
+              conversationId: params.conversationId,
+            },
+            select: { id: true },
+          });
+
+          if (!replyTarget) {
+            throw new Error('Reply target not found');
+          }
+        }
+
         const msg = await tx.message.create({
           data: {
             conversationId: params.conversationId,
             senderType: SenderType.ADMIN,
             adminId: params.adminId,
+            replyToMessageId: params.replyToMessageId,
             content: params.content,
             contentType: params.contentType,
             mediaUrl: params.mediaUrl,
           },
+          select: messageWithReplySelect,
         });
 
         await tx.conversation.update({
@@ -197,26 +244,8 @@ export class MessageService {
         return msg;
       });
 
-      const fullMessage = await prisma.message.findUnique({
-        where: { id: message.id },
-        select: {
-          id: true,
-          conversationId: true,
-          senderType: true,
-          adminId: true,
-          content: true,
-          contentType: true,
-          mediaUrl: true,
-          metadata: true,
-          platformMsgId: true,
-          isRead: true,
-          sentAt: true,
-          admin: { select: { id: true, name: true, avatar: true } },
-        },
-      });
-
       const io = getSocketIO();
-      io.to(`conversation:${params.conversationId}`).emit('message:new', fullMessage);
+      io.to(`conversation:${params.conversationId}`).emit('message:new', message);
 
       const platformContact = conversation.contact.platformLinks.find(
         (pl) => pl.platform === conversation.platform
@@ -249,7 +278,7 @@ export class MessageService {
         adminId: params.adminId,
       });
 
-      return fullMessage;
+      return message;
     } catch (error) {
       logger.error('MessageService.sendAdminMessage failed', { error, params });
       throw error;

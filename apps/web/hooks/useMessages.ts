@@ -57,7 +57,12 @@ export function useMessages(conversationId: string | null) {
           // deduplicate: skip if already in list (added via optimistic or previous event)
           if (prev.some((m) => m.id === message.id)) return prev;
           // replace temp optimistic message if content matches
-          const tempIdx = prev.findIndex((m) => m.id.startsWith('temp-') && m.content === message.content && m.contentType === message.contentType);
+          const tempIdx = prev.findIndex((m) => (
+            m.id.startsWith('temp-')
+            && m.content === message.content
+            && m.contentType === message.contentType
+            && m.replyToMessageId === message.replyToMessageId
+          ));
           if (tempIdx !== -1) {
             const next = [...prev];
             next[tempIdx] = message;
@@ -79,7 +84,7 @@ export function useMessages(conversationId: string | null) {
     }
   }, [isLoading, hasMore, page, fetchMessages]);
 
-  const sendMessage = useCallback(async (content: string, contentType = 'TEXT', mediaUrl?: string) => {
+  const sendMessage = useCallback(async (content: string, contentType = 'TEXT', mediaUrl?: string, replyToMessage?: Message | null) => {
     if (!conversationId) return;
 
     // Optimistic update — show message immediately
@@ -87,6 +92,18 @@ export function useMessages(conversationId: string | null) {
     const tempMessage: Message = {
       id: tempId,
       conversationId,
+      replyToMessageId: replyToMessage?.id,
+      replyToMessage: replyToMessage ? {
+        id: replyToMessage.id,
+        conversationId: replyToMessage.conversationId,
+        senderType: replyToMessage.senderType,
+        adminId: replyToMessage.adminId,
+        content: replyToMessage.content,
+        contentType: replyToMessage.contentType,
+        mediaUrl: replyToMessage.mediaUrl,
+        sentAt: replyToMessage.sentAt,
+        admin: replyToMessage.admin,
+      } : null,
       content,
       contentType: contentType as Message['contentType'],
       mediaUrl,
@@ -102,6 +119,7 @@ export function useMessages(conversationId: string | null) {
         content,
         contentType,
         mediaUrl,
+        replyToMessageId: replyToMessage?.id,
       });
       // Replace temp with real message from server only when payload shape is valid.
       const payload = res.data as Partial<Message> | undefined;
