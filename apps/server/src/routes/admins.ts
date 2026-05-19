@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
-import { authMiddleware, requireSuperAdmin, AuthRequest } from '../middleware/auth';
+import { authMiddleware, requireSuperAdmin, AuthRequest, ADMIN_ROLE_VALUES } from '../middleware/auth';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -35,7 +35,7 @@ const createAdminSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(1),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'AGENT']).default('AGENT'),
+  role: z.enum(ADMIN_ROLE_VALUES).default('AGENT'),
 });
 
 router.post('/', requireSuperAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -78,7 +78,7 @@ router.post('/', requireSuperAdmin, async (req: AuthRequest, res: Response): Pro
 
 const updateAdminSchema = z.object({
   name: z.string().min(1).optional(),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'AGENT']).optional(),
+  role: z.enum(ADMIN_ROLE_VALUES).optional(),
   password: z.string().min(8).optional(),
 });
 

@@ -7,6 +7,8 @@ import type { Conversation, ConversationStatus, Platform } from '@/types';
 import { Search, Filter, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
+import { canWriteChat } from '@/lib/permissions';
 
 interface ConversationListProps {
   activeId?: string;
@@ -35,12 +37,17 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
   const [showFilters, setShowFilters] = useState(false);
   const listContainerRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const admin = useAuth((s) => s.admin);
+  const canModifyChat = canWriteChat(admin?.role);
   const { conversations, isLoading, isLoadingMore, hasMore, filters, setFilters, loadMore, updateContactName, markConversationRead } = useConversations();
 
   const handleSelectConversation = useCallback((conversation: Conversation) => {
-    markConversationRead(conversation.id);
+    if (canModifyChat) {
+      markConversationRead(conversation.id);
+    }
+
     onSelect(conversation);
-  }, [markConversationRead, onSelect]);
+  }, [canModifyChat, markConversationRead, onSelect]);
 
   useEffect(() => {
     if (registerContactRenamer) {
@@ -62,12 +69,14 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
   }, [search, setFilters]);
 
   useEffect(() => {
-    if (activeId) {
+    if (activeId && canModifyChat) {
       markConversationRead(activeId);
     }
-  }, [activeId, markConversationRead]);
+  }, [activeId, canModifyChat, markConversationRead]);
 
   useEffect(() => {
+    if (!canModifyChat) return;
+
     if (!activeId) return;
 
     const activeConversation = conversations.find((c) => c.id === activeId);
@@ -76,7 +85,7 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
     // Keep unread badge cleared while the active conversation is open.
     markConversationRead(activeId);
     api.post(`/api/conversations/${activeId}/read`).catch(() => {});
-  }, [activeId, conversations, markConversationRead]);
+  }, [activeId, canModifyChat, conversations, markConversationRead]);
 
   useEffect(() => {
     const target = loadMoreRef.current;

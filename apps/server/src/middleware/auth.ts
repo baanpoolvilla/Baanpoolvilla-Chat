@@ -3,13 +3,34 @@ import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 import { logger } from '../lib/logger';
 
+export const ADMIN_ROLE_VALUES = ['SUPER_ADMIN', 'ADMIN', 'AGENT', 'CHAT_VIEWER'] as const;
+export type AdminRole = (typeof ADMIN_ROLE_VALUES)[number];
+export const CHAT_VIEWER_ROLE: AdminRole = 'CHAT_VIEWER';
+
 export interface AuthRequest extends Request {
   admin?: {
     id: string;
     email: string;
-    role: string;
+    role: AdminRole;
     name: string;
   };
+}
+
+export function isChatViewer(role?: string | null): boolean {
+  return role === CHAT_VIEWER_ROLE;
+}
+
+export function canWriteChat(role?: string | null): boolean {
+  return !isChatViewer(role);
+}
+
+export function requireChatWriteAccess(req: AuthRequest, res: Response, next: NextFunction): void {
+  if (!canWriteChat(req.admin?.role)) {
+    res.status(403).json({ error: 'Read-only chat role cannot modify chat data' });
+    return;
+  }
+
+  next();
 }
 
 export function authMiddleware(requiredRoles?: string[]) {

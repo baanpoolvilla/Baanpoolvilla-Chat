@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import { canAccessDashboardPath, getDefaultDashboardRoute } from '@/lib/permissions';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const hasSyncedSession = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isConversationDetailRoute = pathname.startsWith('/conversations/');
+  const hasPathAccess = canAccessDashboardPath(admin?.role, pathname);
 
   useEffect(() => {
     if (!hasSyncedSession.current) {
@@ -30,7 +32,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [isLoading, isAuthenticated, router]);
 
-  if (isLoading || !isAuthenticated || !admin) {
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && admin && !hasPathAccess) {
+      router.replace(getDefaultDashboardRoute(admin.role));
+    }
+  }, [admin, hasPathAccess, isAuthenticated, isLoading, router]);
+
+  if (isLoading || !isAuthenticated || !admin || !hasPathAccess) {
     return (
       <div className="min-h-screen bg-slate-100/70 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />

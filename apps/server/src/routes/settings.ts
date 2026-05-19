@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middleware/auth';
 import { logger } from '../lib/logger';
 import { Platform, Prisma } from '@prisma/client';
 import { LineService } from '../services/platforms/LineService';
@@ -45,7 +45,7 @@ const platformSchema = z.object({
 });
 
 // POST /api/settings/platforms
-router.post('/platforms', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/platforms', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = platformSchema.parse(req.body);
 
@@ -102,7 +102,7 @@ const updateSchema = z.object({
 });
 
 // PUT /api/settings/platforms/:id
-router.put('/platforms/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/platforms/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateSchema.parse(req.body);
 

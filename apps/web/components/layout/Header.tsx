@@ -9,6 +9,12 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { admin, logout } = useAuth();
+  const roleLabel = {
+    SUPER_ADMIN: 'Super Admin',
+    ADMIN: 'Admin',
+    AGENT: 'Agent',
+    CHAT_VIEWER: 'Chat Viewer',
+  }[admin?.role || ''] || admin?.role;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-orange-100 bg-white/85 px-4 backdrop-blur md:px-6">
@@ -39,7 +45,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </div>
           <div className="hidden sm:block">
             <p className="text-sm font-medium text-gray-900 leading-tight">{admin?.name}</p>
-            <p className="text-xs text-gray-500 leading-tight">{admin?.role}</p>
+            <p className="text-xs text-gray-500 leading-tight">{roleLabel}</p>
           </div>
         </div>
 

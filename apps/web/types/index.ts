@@ -1,6 +1,6 @@
 // ─── Enums ──────────────────────────────────────────────
 export type Platform = 'LINE' | 'FACEBOOK' | 'INSTAGRAM' | 'TIKTOK' | 'MANUAL';
-export type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'AGENT';
+export type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'AGENT' | 'CHAT_VIEWER';
 export type ConversationStatus = 'OPEN' | 'PENDING' | 'RESOLVED' | 'SNOOZED';
 export type Priority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 export type SenderType = 'CUSTOMER' | 'ADMIN' | 'BOT' | 'SYSTEM';

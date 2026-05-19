@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { LineService } from '../services/platforms/LineService';
 import { logger } from '../lib/logger';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, requireChatWriteAccess } from '../middleware/auth';
 
 const router = Router();
 
@@ -32,7 +32,7 @@ function resolvePublicBase(req: Request): string {
 }
 
 // Accept base64-encoded file: { data: string (base64), mimeType: string }
-router.post('/upload', authMiddleware(), async (req: Request, res: Response): Promise<void> => {
+router.post('/upload', authMiddleware(), requireChatWriteAccess, async (req: Request, res: Response): Promise<void> => {
   try {
     const { data: b64, mimeType } = req.body as { data?: string; mimeType?: string };
 

@@ -3,13 +3,24 @@ import { ContentType } from '@prisma/client';
 import { MessageService } from '../services/MessageService';
 import { ConversationService } from '../services/ConversationService';
 import { logger } from '../lib/logger';
+import { canWriteChat } from '../middleware/auth';
 
 interface AdminSocket extends Socket {
   adminId: string;
+  adminRole: string;
 }
 
 export function chatHandler(io: SocketIOServer, socket: Socket): void {
   const adminSocket = socket as AdminSocket;
+
+  const ensureWriteAccess = () => {
+    if (!canWriteChat(adminSocket.adminRole)) {
+      socket.emit('error', { message: 'Read-only chat role cannot modify chat data' });
+      return false;
+    }
+
+    return true;
+  };
 
   socket.on('conversation:join', (conversationId: string) => {
     socket.join(`conversation:${conversationId}`);
@@ -34,6 +45,10 @@ export function chatHandler(io: SocketIOServer, socket: Socket): void {
     mediaUrl?: string;
   }) => {
     try {
+      if (!ensureWriteAccess()) {
+        return;
+      }
+
       if (!data.conversationId || !data.content) {
         socket.emit('error', { message: 'Missing required fields' });
         return;
@@ -54,6 +69,10 @@ export function chatHandler(io: SocketIOServer, socket: Socket): void {
 
   socket.on('conversation:read', async (conversationId: string) => {
     try {
+      if (!ensureWriteAccess()) {
+        return;
+      }
+
       await ConversationService.markRead(conversationId);
       io.emit('conversation:updated', { id: conversationId, unreadCount: 0 });
     } catch (error) {
@@ -66,6 +85,10 @@ export function chatHandler(io: SocketIOServer, socket: Socket): void {
     adminId: string;
   }) => {
     try {
+      if (!ensureWriteAccess()) {
+        return;
+      }
+
       await ConversationService.assign(data.conversationId, data.adminId);
     } catch (error) {
       logger.error('Socket conversation:assign error', { error });
@@ -74,6 +97,10 @@ export function chatHandler(io: SocketIOServer, socket: Socket): void {
   });
 
   socket.on('conversation:typing', (conversationId: string) => {
+    if (!ensureWriteAccess()) {
+      return;
+    }
+
     socket.to(`conversation:${conversationId}`).emit('admin:typing', {
       conversationId,
       adminId: adminSocket.adminId,

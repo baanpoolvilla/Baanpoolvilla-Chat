@@ -25,6 +25,7 @@ enum AdminRole {
   SUPER_ADMIN
   ADMIN
   AGENT
+  CHAT_VIEWER
 }
 
 model Contact {

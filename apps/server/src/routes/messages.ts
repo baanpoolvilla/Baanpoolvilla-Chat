@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middleware/auth';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -51,7 +51,7 @@ const sendSchema = z.object({
   mediaUrl: z.string().url().optional(),
 });
 
-router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = sendSchema.parse(req.body);
     const { MessageService } = await import('../services/MessageService');

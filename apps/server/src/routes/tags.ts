@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middleware/auth';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -28,7 +28,7 @@ const categorySchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#6366f1'),
 });
 
-router.post('/categories', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/categories', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = categorySchema.parse(req.body);
     const category = await prisma.tagCategory.create({ data });
@@ -43,7 +43,7 @@ router.post('/categories', async (req: AuthRequest, res: Response): Promise<void
   }
 });
 
-router.put('/categories/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/categories/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = categorySchema.parse(req.body);
     const category = await prisma.tagCategory.update({
@@ -61,7 +61,7 @@ router.put('/categories/:id', async (req: AuthRequest, res: Response): Promise<v
   }
 });
 
-router.delete('/categories/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/categories/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await prisma.tagCategory.delete({ where: { id: req.params.id } });
     res.json({ message: 'Category deleted' });
@@ -92,7 +92,7 @@ const tagSchema = z.object({
   categoryId: z.string().cuid().nullish(),
 });
 
-router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = tagSchema.parse(req.body);
     const tag = await prisma.tag.create({
@@ -114,7 +114,7 @@ router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
   }
 });
 
-router.put('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = tagSchema.parse(req.body);
     const tag = await prisma.tag.update({
@@ -137,7 +137,7 @@ router.put('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   }
 });
 
-router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await prisma.tag.delete({ where: { id: req.params.id } });
     res.json({ message: 'Tag deleted' });

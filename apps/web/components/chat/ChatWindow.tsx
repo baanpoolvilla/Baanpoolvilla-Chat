@@ -8,6 +8,8 @@ import type { Conversation } from '@/types';
 import { ChevronLeft, Info, Loader2, X } from 'lucide-react';
 import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
+import { useAuth } from '@/hooks/useAuth';
+import { canWriteChat } from '@/lib/permissions';
 
 interface ChatWindowProps {
   conversationId: string;
@@ -23,6 +25,8 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldJumpToBottomRef = useRef(true);
+  const admin = useAuth((s) => s.admin);
+  const canModifyChat = canWriteChat(admin?.role);
 
   const scrollToBottom = (behavior: ScrollBehavior) => {
     messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
@@ -41,8 +45,12 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   }, [conversationId, messages.length]);
 
   useEffect(() => {
+    if (!canModifyChat) {
+      return;
+    }
+
     api.post(`/api/conversations/${conversationId}/read`).catch(() => {});
-  }, [conversationId]);
+  }, [canModifyChat, conversationId]);
 
   const handleScroll = () => {
     const el = scrollContainerRef.current;
@@ -145,10 +153,16 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
       </div>
 
       {/* Input */}
-      <MessageInput
-        onSend={handleSend}
-        platform={conversation?.platform}
-      />
+      {canModifyChat ? (
+        <MessageInput
+          onSend={handleSend}
+          platform={conversation?.platform}
+        />
+      ) : (
+        <div className="border-t border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">
+          บทบาทนี้ดูแชตได้อย่างเดียว ระบบปิดการส่งข้อความไว้
+        </div>
+      )}
     </div>
   );
 }

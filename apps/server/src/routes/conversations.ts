@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { ConversationService } from '../services/ConversationService';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middleware/auth';
 import { logger } from '../lib/logger';
 import prisma from '../lib/prisma';
 import { getSocketIO } from '../lib/socket';
@@ -67,7 +67,7 @@ const updateSchema = z.object({
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).optional(),
 });
 
-router.patch('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.patch('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateSchema.parse(req.body);
     const conversation = await ConversationService.update(req.params.id, data);
@@ -86,7 +86,7 @@ const botToggleSchema = z.object({
   isBot: z.boolean(),
 });
 
-router.patch('/:id/bot', async (req: AuthRequest, res: Response): Promise<void> => {
+router.patch('/:id/bot', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = botToggleSchema.parse(req.body);
     const conversation = await ConversationService.toggleBot(req.params.id, data.isBot);
@@ -101,7 +101,7 @@ router.patch('/:id/bot', async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
-router.post('/:id/read', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/:id/read', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await ConversationService.markRead(req.params.id);
     getSocketIO().emit('conversation:updated', { id: req.params.id, unreadCount: 0 });
@@ -116,7 +116,7 @@ const assignSchema = z.object({
   adminId: z.string().cuid(),
 });
 
-router.post('/:id/assign', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/:id/assign', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = assignSchema.parse(req.body);
     const assignment = await ConversationService.assign(req.params.id, data.adminId);
@@ -135,7 +135,7 @@ const tagSchema = z.object({
   tagId: z.string().cuid(),
 });
 
-router.post('/:id/tags', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/:id/tags', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = tagSchema.parse(req.body);
     const tag = await ConversationService.addTag(req.params.id, data.tagId, req.admin?.id);
@@ -150,7 +150,7 @@ router.post('/:id/tags', async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
-router.delete('/:id/tags/:tagId', async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/:id/tags/:tagId', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await ConversationService.removeTag(req.params.id, req.params.tagId);
     res.json({ message: 'Tag removed' });
@@ -164,7 +164,7 @@ const noteSchema = z.object({
   content: z.string().min(1),
 });
 
-router.post('/:id/notes', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/:id/notes', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = noteSchema.parse(req.body);
     const note = await ConversationService.addNote(req.params.id, data.content, req.admin!.id);
@@ -196,7 +196,7 @@ const updateNoteSchema = z.object({
   content: z.string().min(1),
 });
 
-router.patch('/:id/notes/:noteId', async (req: AuthRequest, res: Response): Promise<void> => {
+router.patch('/:id/notes/:noteId', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateNoteSchema.parse(req.body);
     const note = await prisma.conversationNote.update({
@@ -214,7 +214,7 @@ router.patch('/:id/notes/:noteId', async (req: AuthRequest, res: Response): Prom
   }
 });
 
-router.delete('/:id/notes/:noteId', async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/:id/notes/:noteId', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await prisma.conversationNote.delete({
       where: { id: req.params.noteId },

@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middleware/auth';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -85,7 +85,7 @@ const updateContactSchema = z.object({
   notes: z.string().optional(),
 });
 
-router.patch('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.patch('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateContactSchema.parse(req.body);
     const contact = await prisma.contact.update({
@@ -111,7 +111,7 @@ const contactTagSchema = z.object({
   tagId: z.string().cuid(),
 });
 
-router.post('/:id/tags', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/:id/tags', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = contactTagSchema.parse(req.body);
     const tag = await prisma.contactTag.create({
@@ -129,7 +129,7 @@ router.post('/:id/tags', async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
-router.delete('/:id/tags/:tagId', async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/:id/tags/:tagId', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await prisma.contactTag.delete({
       where: {

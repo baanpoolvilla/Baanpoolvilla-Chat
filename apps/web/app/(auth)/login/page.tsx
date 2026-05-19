@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { getDefaultDashboardRoute } from '@/lib/permissions';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,7 +20,8 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.push('/dashboard');
+      const admin = useAuth.getState().admin;
+      router.push(getDefaultDashboardRoute(admin?.role));
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';

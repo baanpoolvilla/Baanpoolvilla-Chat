@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middleware/auth';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -24,7 +24,7 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
 });
 
 // POST /api/quick-replies
-router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = quickReplySchema.parse(req.body);
     const item = await prisma.quickReply.create({ data });
@@ -40,7 +40,7 @@ router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
 });
 
 // PUT /api/quick-replies/:id
-router.put('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = quickReplySchema.parse(req.body);
     const item = await prisma.quickReply.update({
@@ -59,7 +59,7 @@ router.put('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
 });
 
 // DELETE /api/quick-replies/:id
-router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await prisma.quickReply.delete({ where: { id: req.params.id } });
     res.status(204).send();

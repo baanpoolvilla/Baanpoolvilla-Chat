@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import type { Conversation, ConversationNote } from '@/types';
 import TagSelector from './TagSelector';
+import TagBadge from './TagBadge';
 import {
   Phone, Mail, Plus, Pencil, Trash2, Check, X,
 } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
 import PlatformBadge from '@/components/common/PlatformBadge';
+import { useAuth } from '@/hooks/useAuth';
+import { canWriteChat } from '@/lib/permissions';
 
 interface ConversationInfoProps {
   conversationId: string;
@@ -27,12 +30,16 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
+  const admin = useAuth((s) => s.admin);
+  const canModifyChat = canWriteChat(admin?.role);
 
   useEffect(() => {
     setNotes(conversation?.notes || []);
   }, [conversation]);
 
   const handleAddTag = async (tagId: string) => {
+    if (!canModifyChat) return;
+
     try {
       await api.post(`/api/conversations/${conversationId}/tags`, { tagId });
       await refreshConversation();
@@ -42,6 +49,8 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   };
 
   const handleRemoveTag = async (tagId: string) => {
+    if (!canModifyChat) return;
+
     try {
       await api.delete(`/api/conversations/${conversationId}/tags/${tagId}`);
       await refreshConversation();
@@ -51,6 +60,7 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   };
 
   const handleAddNote = async () => {
+    if (!canModifyChat) return;
     if (!newNote.trim()) return;
     try {
       const response = await api.post(`/api/conversations/${conversationId}/notes`, {
@@ -65,6 +75,7 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   };
 
   const handleEditNote = async (noteId: string) => {
+    if (!canModifyChat) return;
     if (!editingNoteContent.trim()) return;
     try {
       const response = await api.patch(`/api/conversations/${conversationId}/notes/${noteId}`, {
@@ -78,6 +89,8 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   };
 
   const handleDeleteNote = async (noteId: string) => {
+    if (!canModifyChat) return;
+
     try {
       await api.delete(`/api/conversations/${conversationId}/notes/${noteId}`);
       setNotes((current) => current.filter((note) => note.id !== noteId));
@@ -87,6 +100,7 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   };
 
   const handleRenameContact = async () => {
+    if (!canModifyChat) return;
     if (!newDisplayName.trim() || !conversation) return;
     try {
       await api.patch(`/api/contacts/${conversation.contact.id}`, {
@@ -145,13 +159,15 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
           ) : (
             <div className="mt-2 flex items-center gap-1">
               <h3 className="text-sm font-semibold">{contact.displayName}</h3>
-              <button
-                onClick={() => { setNewDisplayName(contact.displayName); setEditingName(true); }}
-                className="text-gray-300 hover:text-gray-500"
-                title="เปลี่ยนชื่อ"
-              >
-                <Pencil className="h-3 w-3" />
-              </button>
+              {canModifyChat && (
+                <button
+                  onClick={() => { setNewDisplayName(contact.displayName); setEditingName(true); }}
+                  className="text-gray-300 hover:text-gray-500"
+                  title="เปลี่ยนชื่อ"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
             </div>
           )}
 
@@ -179,11 +195,23 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
       {/* Tags */}
       <div className="border-b border-gray-200 p-4">
         <h4 className="mb-2 text-xs font-semibold uppercase text-gray-400">Tags</h4>
-        <TagSelector
-          selectedTagIds={(conversation.tags || []).map((t) => t.tagId)}
-          onAdd={handleAddTag}
-          onRemove={handleRemoveTag}
-        />
+        {canModifyChat ? (
+          <TagSelector
+            selectedTagIds={(conversation.tags || []).map((t) => t.tagId)}
+            onAdd={handleAddTag}
+            onRemove={handleRemoveTag}
+          />
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {(conversation.tags || []).length > 0 ? (
+              conversation.tags?.map((item) => (
+                <TagBadge key={item.tagId} name={item.tag.name} color={item.tag.color} />
+              ))
+            ) : (
+              <p className="text-xs text-gray-400">No tags assigned</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Assignments */}
@@ -209,15 +237,17 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-xs font-semibold uppercase text-gray-400">Internal Notes</h4>
-          <button
-            onClick={() => setShowNoteInput(!showNoteInput)}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+          {canModifyChat && (
+            <button
+              onClick={() => setShowNoteInput(!showNoteInput)}
+              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
-        {showNoteInput && (
+        {canModifyChat && showNoteInput && (
           <div className="mb-3">
             <textarea
               value={newNote}
@@ -277,22 +307,24 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
                 <>
                   <p className="text-xs text-gray-700 pr-12">{note.content}</p>
                   <p className="mt-1 text-[10px] text-gray-400">{formatTimeAgo(note.createdAt)}</p>
-                  <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                    <button
-                      onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }}
-                      className="rounded p-0.5 text-gray-400 hover:bg-yellow-200 hover:text-gray-600"
-                      title="แก้ไข"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteNote(note.id)}
-                      className="rounded p-0.5 text-gray-400 hover:bg-red-100 hover:text-red-500"
-                      title="ลบ"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
+                  {canModifyChat && (
+                    <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
+                      <button
+                        onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }}
+                        className="rounded p-0.5 text-gray-400 hover:bg-yellow-200 hover:text-gray-600"
+                        title="แก้ไข"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="rounded p-0.5 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                        title="ลบ"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
