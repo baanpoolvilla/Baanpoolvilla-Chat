@@ -16,11 +16,10 @@ interface ConversationInfoProps {
   isLoading?: boolean;
   onConversationChange?: (conversation: Conversation) => void;
   refreshConversation: () => Promise<void>;
-  onClose?: () => void;
   onContactRenamed?: (contactId: string, displayName: string) => void;
 }
 
-export default function ConversationInfo({ conversationId, conversation, isLoading = false, onConversationChange, refreshConversation, onClose, onContactRenamed }: ConversationInfoProps) {
+export default function ConversationInfo({ conversationId, conversation, isLoading = false, onConversationChange, refreshConversation, onContactRenamed }: ConversationInfoProps) {
   const [notes, setNotes] = useState<ConversationNote[]>([]);
   const [newNote, setNewNote] = useState('');
   const [showNoteInput, setShowNoteInput] = useState(false);
@@ -113,7 +112,7 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   const { contact } = conversation;
 
   return (
-    <div className="flex h-full w-[280px] flex-col border-l border-gray-200 bg-white overflow-y-auto">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto bg-white">
       {/* Contact Info */}
       <div className="border-b border-gray-200 p-4">
         <div className="flex flex-col items-center text-center">

@@ -20,8 +20,8 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
     <button
       onClick={() => onSelect(conversation)}
       className={cn(
-        'flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition-colors',
-        isActive ? 'bg-brand-50 border border-brand-200' : 'hover:bg-gray-50 border border-transparent'
+        'flex w-full items-start gap-3 border-b border-gray-100 px-4 py-3.5 text-left transition-colors sm:rounded-lg sm:border sm:px-3 sm:py-3',
+        isActive ? 'bg-brand-50 sm:border-brand-200' : 'hover:bg-gray-50 sm:border-transparent'
       )}
     >
       {/* Avatar */}
@@ -73,7 +73,7 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
 
         {/* Tags */}
         {tags && tags.length > 0 && (
-          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+          <div className="mt-1.5 hidden items-center gap-1 flex-wrap sm:flex">
             {tags.slice(0, 2).map((ct) => (
               <TagBadge key={ct.tagId} name={ct.tag.name} color={ct.tag.color} size="sm" />
             ))}
@@ -85,7 +85,7 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
 
         {/* Assigned admin */}
         {assignments && assignments.length > 0 && (
-          <div className="flex items-center gap-1 mt-1">
+          <div className="mt-1 hidden items-center gap-1 sm:flex">
             {assignments.slice(0, 1).map((a) => (
               <span key={a.id} className="text-[10px] text-gray-400">
                 → {a.admin.name}

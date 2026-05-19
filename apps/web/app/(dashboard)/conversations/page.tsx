@@ -12,13 +12,13 @@ export default function ConversationsPage() {
   };
 
   return (
-    <div className="flex h-full min-h-0">
-      <div className="w-full max-w-md min-h-0 overflow-hidden border-r border-gray-200 bg-white">
+    <div className="h-full min-h-0 lg:flex">
+      <div className="w-full min-h-0 overflow-hidden bg-white lg:max-w-md lg:border-r lg:border-gray-200">
         <ConversationList
           onSelect={handleSelect}
         />
       </div>
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
+      <div className="hidden flex-1 items-center justify-center bg-gray-50 lg:flex">
         <div className="text-center">
           <svg
             className="w-16 h-16 text-gray-300 mx-auto mb-4"

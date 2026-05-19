@@ -108,9 +108,9 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col border-r border-gray-200 bg-white">
+    <div className="flex h-full min-h-0 w-full flex-col bg-white">
       {/* Header */}
-      <div className="border-b border-gray-200 p-4">
+      <div className="border-b border-gray-200 px-4 py-3 sm:p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-gray-900">Conversations</h2>
           <button
@@ -189,7 +189,7 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
       </div>
 
       {/* List */}
-      <div ref={listContainerRef} className="flex-1 overflow-y-auto">
+      <div ref={listContainerRef} className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
@@ -199,7 +199,7 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
             No conversations found
           </div>
         ) : (
-          <div className="space-y-0.5 p-2">
+          <div className="divide-y divide-gray-100 sm:space-y-0.5 sm:divide-y-0 sm:p-2">
             {conversations.map((conv) => (
               <ConversationItem
                 key={conv.id}

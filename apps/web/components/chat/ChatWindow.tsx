@@ -5,7 +5,7 @@ import { useMessages } from '@/hooks/useMessages';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import type { Conversation } from '@/types';
-import { Loader2, X } from 'lucide-react';
+import { ChevronLeft, Info, Loader2, X } from 'lucide-react';
 import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
 
@@ -56,25 +56,35 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col bg-gray-50">
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,#e4efd9_0%,#f7faf5_100%)]">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-gray-200 bg-white px-6 py-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-medium">
+      <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-gray-200 bg-white/95 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)] shadow-sm backdrop-blur md:px-6 md:py-3">
+        {onCloseChat && (
+          <button
+            onClick={onCloseChat}
+            className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 md:hidden"
+            title="กลับไปหน้ารายการแชท"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-sm font-medium md:h-10 md:w-10">
           {conversation?.contact?.avatarUrl ? (
             <img
               src={conversation.contact.avatarUrl}
               alt=""
-              className="h-10 w-10 rounded-full object-cover"
+              className="h-9 w-9 rounded-full object-cover md:h-10 md:w-10"
             />
           ) : (
             (conversation?.contact?.displayName || '?').charAt(0).toUpperCase()
           )}
         </div>
-        <div className="flex-1">
-          <h3 className="text-sm font-semibold text-gray-900">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-sm font-semibold text-gray-900">
             {contactNameOverride ?? conversation?.contact?.displayName ?? (isConversationLoading ? 'Loading...' : 'Unknown contact')}
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="mt-0.5 flex items-center gap-2">
             {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}
           </div>
         </div>
@@ -82,15 +92,19 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
           {onCloseChat && (
             <button
               onClick={onCloseChat}
-              className="rounded p-2 text-gray-400 hover:text-gray-600"
+              className="hidden rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 md:inline-flex"
               title="ปิดแชท"
             >
               <X className="h-4 w-4" />
             </button>
           )}
           {onToggleInfo && (
-            <button onClick={onToggleInfo} className="p-2 text-gray-400 hover:text-gray-600">
-              ☰
+            <button
+              onClick={onToggleInfo}
+              className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              title="ข้อมูลการสนทนา"
+            >
+              <Info className="h-4 w-4" />
             </button>
           )}
         </div>
@@ -100,7 +114,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-y-auto px-6 py-4"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 md:px-6 md:py-4"
       >
         {isLoading && messages.length === 0 ? (
           <div className="flex items-center justify-center py-12">
@@ -111,7 +125,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
             {hasMore && (
               <button
                 onClick={loadMore}
-                className="mx-auto block text-xs text-gray-400 hover:text-gray-600"
+                className="mx-auto block rounded-full bg-white/80 px-3 py-1 text-xs text-gray-500 shadow-sm hover:text-gray-700"
               >
                 Load older messages
               </button>

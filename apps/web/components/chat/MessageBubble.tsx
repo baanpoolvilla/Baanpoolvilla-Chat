@@ -41,12 +41,12 @@ function MessageBubble({
   return (
     <div
       className={cn(
-        'flex gap-2 message-enter',
+        'flex gap-1.5 message-enter sm:gap-2',
         isCustomer ? 'justify-start' : 'justify-end'
       )}
     >
       {isCustomer && (
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium">
+        <div className="hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium sm:flex">
           {customerAvatarUrl ? (
             <img src={customerAvatarUrl} alt={fallbackCustomerName} className="h-8 w-8 rounded-full object-cover" loading="lazy" decoding="async" />
           ) : (
@@ -57,7 +57,7 @@ function MessageBubble({
 
       <div
         className={cn(
-          'max-w-[70%] rounded-2xl px-4 py-2',
+          'max-w-[82%] rounded-2xl px-3 py-2.5 sm:max-w-[70%] sm:px-4 sm:py-2',
           isCustomer && 'bg-gray-100 text-gray-900 rounded-bl-md',
           isAdmin && 'bg-brand-600 text-white rounded-br-md',
           isBot && 'bg-purple-100 text-purple-900 rounded-br-md'
@@ -65,7 +65,7 @@ function MessageBubble({
       >
         {/* Sender label */}
         <div className={cn(
-          'mb-0.5 flex items-center gap-1 text-[10px]',
+          'mb-0.5 flex items-center gap-1 text-[9px] sm:text-[10px]',
           isCustomer ? 'text-gray-400' : isBot ? 'text-purple-400' : 'text-brand-200'
         )}>
           {isBot && <Bot className="h-3 w-3" />}
@@ -89,7 +89,7 @@ function MessageBubble({
 
       {(isAdmin || isBot) && (
         <div className={cn(
-          'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium',
+          'hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium sm:flex',
           isBot ? 'bg-purple-200 text-purple-700' : 'bg-brand-200 text-brand-700'
         )}>
           {isBot ? <Bot className="h-4 w-4" /> : message.admin?.name?.charAt(0) || 'A'}

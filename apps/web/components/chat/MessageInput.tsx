@@ -260,7 +260,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
   const favoriteStickerList = LINE_STICKERS.filter((s) => favoriteStickers.includes(stickerKey(s.packageId, s.stickerId)));
 
   return (
-    <div className="border-t border-gray-200 bg-white p-4">
+    <div className="border-t border-gray-200 bg-white/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-12px_30px_rgba(15,23,42,0.06)] backdrop-blur sm:p-4 sm:shadow-none">
       <div className="relative flex items-end gap-2">
         {/* Quick Reply button */}
         <div ref={quickReplyBtnRef} className="relative flex-shrink-0">
@@ -311,7 +311,7 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
               <Sticker className="h-5 w-5" />
             </button>
             {showStickerPicker && (
-              <div className="absolute bottom-12 left-0 z-20 w-80 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+              <div className="absolute bottom-12 left-0 z-20 w-[calc(100vw-2rem)] max-w-80 rounded-xl border border-gray-200 bg-white p-3 shadow-xl sm:w-80">
                 <p className="mb-2 text-xs font-semibold text-gray-500">เลือกสติกเกอร์ LINE OA (รองรับแน่นอน)</p>
 
                 {favoriteStickerList.length > 0 && (
@@ -425,12 +425,12 @@ export default function MessageInput({ onSend, disabled, platform }: MessageInpu
             placeholder="Type a message..."
             disabled={disabled}
             rows={1}
-            className="w-full resize-none rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
+            className="min-h-[44px] w-full resize-none rounded-2xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-[15px] focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
           />
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-[10px] text-gray-400">
+          <span className="hidden text-[10px] text-gray-400 sm:inline">
             {content.length}/{maxChars}
           </span>
           <button

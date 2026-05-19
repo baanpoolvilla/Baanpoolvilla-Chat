@@ -1,19 +1,21 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const admin = useAuth((s) => s.admin);
   const isAuthenticated = useAuth((s) => s.isAuthenticated);
   const isLoading = useAuth((s) => s.isLoading);
   const loadSession = useAuth((s) => s.loadSession);
   const hasSyncedSession = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isConversationDetailRoute = pathname.startsWith('/conversations/');
 
   useEffect(() => {
     if (!hasSyncedSession.current) {
@@ -40,7 +42,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex h-dvh overflow-hidden">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        {isConversationDetailRoute ? (
+          <div className="hidden md:block">
+            <Header onMenuClick={() => setSidebarOpen(true)} />
+          </div>
+        ) : (
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        )}
         <main className="flex-1 min-h-0 overflow-hidden">{children}</main>
       </div>
     </div>

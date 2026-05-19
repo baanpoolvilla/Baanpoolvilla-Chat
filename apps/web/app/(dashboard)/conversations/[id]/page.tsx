@@ -12,7 +12,8 @@ export default function ConversationDetailPage() {
   const params = useParams();
   const router = useRouter();
   const conversationId = params.id as string;
-  const [showInfo, setShowInfo] = useState(true);
+  const [desktopInfoVisible, setDesktopInfoVisible] = useState(true);
+  const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(conversationId);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [isConversationLoading, setIsConversationLoading] = useState(true);
@@ -37,6 +38,7 @@ export default function ConversationDetailPage() {
   useEffect(() => {
     setSelectedId(conversationId);
     setContactNameOverride(undefined);
+    setMobileInfoOpen(false);
   }, [conversationId]);
 
   useEffect(() => {
@@ -74,6 +76,12 @@ export default function ConversationDetailPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (isXlUp) {
+      setMobileInfoOpen(false);
+    }
+  }, [isXlUp]);
+
   const handleSelect = (conversation: Conversation) => {
     setSelectedId(conversation.id);
     setConversation(null);
@@ -100,8 +108,17 @@ export default function ConversationDetailPage() {
     listContactRenamer.current?.(contactId, displayName);
   }, []);
 
+  const handleToggleInfo = useCallback(() => {
+    if (isXlUp) {
+      setDesktopInfoVisible((current) => !current);
+      return;
+    }
+
+    setMobileInfoOpen((current) => !current);
+  }, [isXlUp]);
+
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 bg-white md:bg-transparent">
       {/* Conversation List */}
       {isLgUp && (
         <div className="w-80 min-h-0 flex-shrink-0 border-r border-gray-200 bg-white">
@@ -119,14 +136,14 @@ export default function ConversationDetailPage() {
           conversationId={selectedId}
           conversation={conversation}
           isConversationLoading={isConversationLoading}
-          onToggleInfo={() => setShowInfo(!showInfo)}
+          onToggleInfo={handleToggleInfo}
           contactNameOverride={contactNameOverride}
           onCloseChat={() => router.push('/conversations')}
         />
       </div>
 
       {/* Info Panel */}
-      {showInfo && isXlUp && (
+      {desktopInfoVisible && isXlUp && (
         <div className="hidden w-80 min-h-0 flex-shrink-0 overflow-y-auto border-l border-gray-200 bg-white xl:block">
           <ConversationInfo
             conversationId={selectedId}
@@ -134,9 +151,45 @@ export default function ConversationDetailPage() {
             isLoading={isConversationLoading}
             onConversationChange={setConversation}
             refreshConversation={() => refreshConversation(selectedId)}
-            onClose={() => setShowInfo(false)}
             onContactRenamed={handleContactRenamed}
           />
+        </div>
+      )}
+
+      {mobileInfoOpen && !isXlUp && (
+        <div className="fixed inset-0 z-50 xl:hidden">
+          <button
+            type="button"
+            aria-label="ปิดข้อมูลแชท"
+            className="absolute inset-0 bg-slate-950/40"
+            onClick={() => setMobileInfoOpen(false)}
+          />
+          <div className="absolute inset-y-0 right-0 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.9rem)]">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Chat Details</p>
+                <h2 className="text-sm font-semibold text-gray-900">ข้อมูลการสนทนา</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileInfoOpen(false)}
+                className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <span className="sr-only">ปิดข้อมูลแชท</span>
+                ×
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <ConversationInfo
+                conversationId={selectedId}
+                conversation={conversation}
+                isLoading={isConversationLoading}
+                onConversationChange={setConversation}
+                refreshConversation={() => refreshConversation(selectedId)}
+                onContactRenamed={handleContactRenamed}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
