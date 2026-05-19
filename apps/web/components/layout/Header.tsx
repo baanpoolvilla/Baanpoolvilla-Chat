@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
+import type { AdminRole } from '@/types';
 import { LogOut, Bell, User, Menu } from 'lucide-react';
 
 interface HeaderProps {
@@ -9,12 +10,13 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { admin, logout } = useAuth();
-  const roleLabel = {
+  const roleLabels: Record<AdminRole, string> = {
     SUPER_ADMIN: 'Super Admin',
     ADMIN: 'Admin',
     AGENT: 'Agent',
     CHAT_VIEWER: 'Chat Viewer',
-  }[admin?.role || ''] || admin?.role;
+  };
+  const roleLabel = admin?.role ? roleLabels[admin.role] ?? admin.role : '';
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-orange-100 bg-white/85 px-4 backdrop-blur md:px-6">
