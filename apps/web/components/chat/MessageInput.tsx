@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, KeyboardEvent, useEffect, ChangeEvent } from 'react';
+import { useState, useRef, useCallback, KeyboardEvent, useEffect, ChangeEvent } from 'react';
 import { Send, Paperclip, MessageSquarePlus, Sticker, Star, Loader2, X } from 'lucide-react';
 // Loader2 used for isSending spinner on send button
 import QuickReplyPicker from './QuickReplyPicker';
@@ -101,6 +101,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [favoriteStickers, setFavoriteStickers] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false); // synchronous guard – React state update is async
   const [sendError, setSendError] = useState<string | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<{
     file: File;
@@ -143,10 +144,11 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
     setSendError(null);
   };
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     const trimmed = content.trim();
-    if (disabled || isSending || (!trimmed && !pendingAttachment)) return;
+    if (disabled || isSendingRef.current || (!trimmed && !pendingAttachment)) return;
 
+    isSendingRef.current = true; // set synchronously before any await
     setSendError(null);
     setIsSending(true);
     try {
@@ -190,9 +192,10 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
       setSendError(`ส่งข้อความไม่สำเร็จ: ${msg}`);
       console.error('Failed to send message:', error);
     } finally {
+      isSendingRef.current = false;
       setIsSending(false);
     }
-  };
+  }, [content, disabled, isSending, onSend, pendingAttachment, replyingTo]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

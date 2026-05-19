@@ -257,6 +257,22 @@ export class MessageService {
     clientRequestId?: string;
   }): Promise<unknown> {
     try {
+      // Idempotency: if clientRequestId was already processed, return existing message
+      if (params.clientRequestId) {
+        const existing = await prisma.message.findFirst({
+          where: {
+            conversationId: params.conversationId,
+            adminId: params.adminId,
+            metadata: { path: ['clientRequestId'], equals: params.clientRequestId },
+          },
+          select: messageWithReplySelect,
+        });
+        if (existing) {
+          logger.info('Idempotent message: returning existing', { clientRequestId: params.clientRequestId });
+          return existing;
+        }
+      }
+
       const conversation = await prisma.conversation.findUnique({
         where: { id: params.conversationId },
         include: {
