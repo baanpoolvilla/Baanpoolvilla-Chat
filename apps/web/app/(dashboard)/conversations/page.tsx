@@ -12,8 +12,8 @@ export default function ConversationsPage() {
   };
 
   return (
-    <div className="h-full min-h-0 lg:flex">
-      <div className="w-full min-h-0 overflow-hidden bg-white lg:max-w-md lg:border-r lg:border-gray-200">
+    <div className="flex h-full min-h-0 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-white lg:max-w-md lg:flex-none lg:border-r lg:border-gray-200">
         <ConversationList
           onSelect={handleSelect}
         />
