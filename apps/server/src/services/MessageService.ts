@@ -3,6 +3,7 @@ import prisma from '../lib/prisma';
 import { getSocketIO } from '../lib/socket';
 import { logger } from '../lib/logger';
 import { AiBotService } from './AiBotService';
+import { conversationSummarySelect } from './ConversationService';
 
 export interface IncomingMessage {
   platform: Platform;
@@ -118,22 +119,15 @@ export class MessageService {
 
       const io = getSocketIO();
 
-      const fullMessage = await prisma.message.findUnique({
-        where: { id: result.message.id },
-        include: { conversation: { include: { contact: true } } },
-      });
-
-      io.to(`conversation:${result.conversation.id}`).emit('message:new', fullMessage);
+      io.to(`conversation:${result.conversation.id}`).emit('message:new', result.message);
 
       const fullConversation = await prisma.conversation.findUnique({
         where: { id: result.conversation.id },
-        include: {
-          contact: true,
-          tags: { include: { tag: true } },
-          assignments: { include: { admin: true } },
-        },
+        select: conversationSummarySelect,
       });
-      io.emit('conversation:updated', fullConversation);
+      if (fullConversation) {
+        io.emit('conversation:updated', fullConversation);
+      }
 
       if (result.conversation.isBot) {
         AiBotService.reply(result.conversation.id, incoming.content).catch((err) => {
@@ -205,9 +199,19 @@ export class MessageService {
 
       const fullMessage = await prisma.message.findUnique({
         where: { id: message.id },
-        include: {
+        select: {
+          id: true,
+          conversationId: true,
+          senderType: true,
+          adminId: true,
+          content: true,
+          contentType: true,
+          mediaUrl: true,
+          metadata: true,
+          platformMsgId: true,
+          isRead: true,
+          sentAt: true,
           admin: { select: { id: true, name: true, avatar: true } },
-          conversation: { include: { contact: true } },
         },
       });
 

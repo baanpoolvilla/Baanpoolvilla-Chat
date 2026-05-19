@@ -51,6 +51,7 @@ model PlatformContact {
   contact     Contact  @relation(fields: [contactId], references: [id])
 
   @@unique([platform, platformUid])
+  @@index([platform, contactId], map: "PlatformContact_platform_contactId_idx")
 }
 
 model TagCategory {
@@ -83,6 +84,7 @@ model ConversationTag {
   tag            Tag          @relation(fields: [tagId], references: [id])
 
   @@id([conversationId, tagId])
+  @@index([tagId, conversationId], map: "ConversationTag_tagId_conversationId_idx")
 }
 
 model ContactTag {
@@ -92,6 +94,7 @@ model ContactTag {
   tag       Tag     @relation(fields: [tagId], references: [id])
 
   @@id([contactId, tagId])
+  @@index([tagId, contactId], map: "ContactTag_tagId_contactId_idx")
 }
 
 model Conversation {
@@ -112,6 +115,12 @@ model Conversation {
   tags        ConversationTag[]
   assignments ConversationAssignment[]
   notes       ConversationNote[]
+
+  @@index([lastMsgAt], map: "Conversation_lastMsgAt_idx")
+  @@index([status, lastMsgAt], map: "Conversation_status_lastMsgAt_idx")
+  @@index([platform, lastMsgAt], map: "Conversation_platform_lastMsgAt_idx")
+  @@index([isBot, lastMsgAt], map: "Conversation_isBot_lastMsgAt_idx")
+  @@index([contactId, platform, channelId, status], map: "Conversation_contact_platform_channel_status_idx")
 }
 
 enum ConversationStatus {
@@ -135,6 +144,8 @@ model ConversationAssignment {
   assignedAt     DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   admin          Admin        @relation(fields: [adminId], references: [id])
+
+  @@index([adminId, conversationId], map: "ConversationAssignment_adminId_conversationId_idx")
 }
 
 model Message {
@@ -153,6 +164,8 @@ model Message {
   admin          Admin?       @relation(fields: [adminId], references: [id])
 
   @@index([conversationId, sentAt])
+  @@index([conversationId, isRead], map: "Message_conversationId_isRead_idx")
+  @@index([platformMsgId], map: "Message_platformMsgId_idx")
 }
 
 enum SenderType {
@@ -244,6 +257,8 @@ model ConversationNote {
   createdBy      String
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId, createdAt], map: "ConversationNote_conversationId_createdAt_idx")
 }
 
 model QuickReply {

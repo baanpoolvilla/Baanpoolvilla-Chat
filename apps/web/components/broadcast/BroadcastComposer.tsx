@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import TargetSelector from './TargetSelector';
@@ -39,30 +39,39 @@ export default function BroadcastComposer({ onDone }: BroadcastComposerProps) {
     }
   }, [target, selectedTagIds, selectedPlatforms]);
 
+  useEffect(() => {
+    const shouldFetch =
+      target === 'ALL' ||
+      (target === 'BY_TAG' && selectedTagIds.length > 0) ||
+      (target === 'BY_PLATFORM' && selectedPlatforms.length > 0);
+
+    if (!shouldFetch) {
+      setEstimatedCount(undefined);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchEstimate();
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [fetchEstimate, selectedPlatforms.length, selectedTagIds.length, target]);
+
   const handleTargetChange = (newTarget: 'ALL' | 'BY_TAG' | 'BY_PLATFORM') => {
     setTarget(newTarget);
     setSelectedTagIds([]);
     setSelectedPlatforms(newTarget === 'BY_PLATFORM' ? [] : ALL_PLATFORMS);
     setEstimatedCount(undefined);
-    if (newTarget === 'ALL') {
-      api.post('/api/broadcasts/estimate', { targetType: 'ALL', platforms: ALL_PLATFORMS }).then((res) => {
-        setEstimatedCount(res.data?.count ?? 0);
-      }).catch(() => {});
-    }
   };
 
   const handleTagIdsChange = (ids: string[]) => {
     setSelectedTagIds(ids);
-    if (ids.length > 0) {
-      setTimeout(fetchEstimate, 300);
-    }
   };
 
   const handlePlatformsChange = (platforms: string[]) => {
     setSelectedPlatforms(platforms);
-    if (platforms.length > 0) {
-      setTimeout(fetchEstimate, 300);
-    }
   };
 
   const handleSubmit = async (sendNow: boolean) => {

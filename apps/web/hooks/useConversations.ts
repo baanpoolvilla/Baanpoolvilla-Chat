@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, type SetStateAction } from 'react';
 import api from '@/lib/api';
 import { useSocket } from './useSocket';
 import type { Conversation, ConversationListResponse, Platform, ConversationStatus } from '@/types';
@@ -84,13 +84,41 @@ interface ConversationFilters {
   limit?: number;
 }
 
+function areFiltersEqual(left: ConversationFilters, right: ConversationFilters) {
+  return (
+    left.status === right.status &&
+    left.platform === right.platform &&
+    left.tagIds === right.tagIds &&
+    left.adminId === right.adminId &&
+    left.search === right.search &&
+    left.isBot === right.isBot &&
+    left.page === right.page &&
+    left.limit === right.limit
+  );
+}
+
 export function useConversations(initialFilters?: ConversationFilters) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [filters, setFilters] = useState<ConversationFilters>(initialFilters || {});
+  const [filters, setFiltersState] = useState<ConversationFilters>(initialFilters || {});
   const { on } = useSocket();
+  const isMountedRef = useRef(true);
+  const fullRefreshInFlightRef = useRef(false);
+  const queuedFullRefreshRef = useRef(false);
+  const lastWindowRefreshRef = useRef(0);
+  const filtersRef = useRef(filters);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   const sortByLatestMessage = useCallback((items: Conversation[]) => {
     return [...items].sort((left, right) => {
@@ -100,7 +128,7 @@ export function useConversations(initialFilters?: ConversationFilters) {
     });
   }, []);
 
-  const fetchConversations = useCallback(async (pageNum = 1, append = false) => {
+  const fetchConversations = useCallback(async (pageNum = 1, append = false, sourceFilters: ConversationFilters = filtersRef.current) => {
     try {
       if (append) {
         setIsLoadingMore(true);
@@ -109,14 +137,14 @@ export function useConversations(initialFilters?: ConversationFilters) {
       }
 
       const params = new URLSearchParams();
-      if (filters.status) params.set('status', filters.status);
-      if (filters.platform) params.set('platform', filters.platform);
-      if (filters.tagIds) params.set('tagIds', filters.tagIds);
-      if (filters.adminId) params.set('adminId', filters.adminId);
-      if (filters.search) params.set('search', filters.search);
-      if (filters.isBot) params.set('isBot', filters.isBot);
+      if (sourceFilters.status) params.set('status', sourceFilters.status);
+      if (sourceFilters.platform) params.set('platform', sourceFilters.platform);
+      if (sourceFilters.tagIds) params.set('tagIds', sourceFilters.tagIds);
+      if (sourceFilters.adminId) params.set('adminId', sourceFilters.adminId);
+      if (sourceFilters.search) params.set('search', sourceFilters.search);
+      if (sourceFilters.isBot) params.set('isBot', sourceFilters.isBot);
       params.set('page', pageNum.toString());
-      if (filters.limit) params.set('limit', filters.limit.toString());
+      if (sourceFilters.limit) params.set('limit', sourceFilters.limit.toString());
 
       const response = await api.get<ConversationListResponse>(`/api/conversations?${params.toString()}`);
       const incoming = response.data.conversations;
@@ -140,22 +168,46 @@ export function useConversations(initialFilters?: ConversationFilters) {
         setIsLoading(false);
       }
     }
-  }, [filters, sortByLatestMessage]);
+  }, [sortByLatestMessage]);
+
+  const triggerFullRefresh = useCallback(() => {
+    if (fullRefreshInFlightRef.current) {
+      queuedFullRefreshRef.current = true;
+      return;
+    }
+
+    fullRefreshInFlightRef.current = true;
+    void fetchConversations(1, false, filtersRef.current).finally(() => {
+      fullRefreshInFlightRef.current = false;
+
+      if (queuedFullRefreshRef.current && isMountedRef.current) {
+        queuedFullRefreshRef.current = false;
+        triggerFullRefresh();
+      }
+    });
+  }, [fetchConversations]);
 
   useEffect(() => {
-    fetchConversations(1, false);
-  }, [fetchConversations]);
+    triggerFullRefresh();
+  }, [filters, triggerFullRefresh]);
 
   const loadMore = useCallback(() => {
     if (isLoading || isLoadingMore) return;
     if (pagination.page >= pagination.totalPages) return;
 
-    fetchConversations(pagination.page + 1, true);
+    void fetchConversations(pagination.page + 1, true);
   }, [fetchConversations, isLoading, isLoadingMore, pagination.page, pagination.totalPages]);
 
   const refetchLatest = useCallback(() => {
-    fetchConversations(1, false);
-  }, [fetchConversations]);
+    triggerFullRefresh();
+  }, [triggerFullRefresh]);
+
+  const setFilters = useCallback((next: SetStateAction<ConversationFilters>) => {
+    setFiltersState((current) => {
+      const resolved = typeof next === 'function' ? next(current) : next;
+      return areFiltersEqual(current, resolved) ? current : resolved;
+    });
+  }, []);
 
   useEffect(() => {
     const offUpdated = on('conversation:updated', (updated) => {
@@ -204,21 +256,27 @@ export function useConversations(initialFilters?: ConversationFilters) {
   }, [on, refetchLatest, sortByLatestMessage]);
 
   useEffect(() => {
-    const handleFocus = () => {
+    const handleForegroundRefresh = () => {
+      const now = Date.now();
+      if (now - lastWindowRefreshRef.current < 1000) {
+        return;
+      }
+
+      lastWindowRefreshRef.current = now;
       refetchLatest();
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        refetchLatest();
+        handleForegroundRefresh();
       }
     };
 
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener('focus', handleForegroundRefresh);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', handleForegroundRefresh);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [refetchLatest]);

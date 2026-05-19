@@ -1,11 +1,11 @@
 'use client';
 
+import { memo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, Platform } from '@/types';
 import { format } from 'date-fns';
 import { Bot, Download, X } from 'lucide-react';
 import PlatformBadge from '@/components/common/PlatformBadge';
-import { useState } from 'react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -14,7 +14,7 @@ interface MessageBubbleProps {
   customerPlatform?: Platform;
 }
 
-export default function MessageBubble({
+function MessageBubble({
   message,
   customerName,
   customerAvatarUrl,
@@ -48,7 +48,7 @@ export default function MessageBubble({
       {isCustomer && (
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium">
           {customerAvatarUrl ? (
-            <img src={customerAvatarUrl} alt={fallbackCustomerName} className="h-8 w-8 rounded-full object-cover" />
+            <img src={customerAvatarUrl} alt={fallbackCustomerName} className="h-8 w-8 rounded-full object-cover" loading="lazy" decoding="async" />
           ) : (
             fallbackInitial
           )}
@@ -131,6 +131,8 @@ function renderContent(message: Message, onImageClick: (url: string) => void) {
               alt="Image"
               className="max-w-full rounded-lg mt-1 cursor-pointer hover:opacity-90 transition-opacity"
               style={{ maxHeight: 300 }}
+              loading="lazy"
+              decoding="async"
               onClick={() => onImageClick(message.mediaUrl!)}
             />
           )}
@@ -173,6 +175,8 @@ function renderContent(message: Message, onImageClick: (url: string) => void) {
             alt="Sticker"
             className="mt-1 cursor-pointer hover:opacity-90 transition-opacity"
             style={{ width: 100, height: 100, objectFit: 'contain' }}
+            loading="lazy"
+            decoding="async"
             onClick={() => onImageClick(stickerUrl)}
           />
         );
@@ -195,3 +199,5 @@ function renderContent(message: Message, onImageClick: (url: string) => void) {
       return <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>;
   }
 }
+
+export default memo(MessageBubble);

@@ -14,10 +14,28 @@ interface AuthState {
   refreshProfile: () => Promise<void>;
 }
 
+function readStoredAdmin(): Pick<AuthState, 'admin' | 'isAuthenticated' | 'isLoading'> {
+  if (typeof window === 'undefined') {
+    return { admin: null, isAuthenticated: false, isLoading: true };
+  }
+
+  const token = localStorage.getItem('accessToken');
+  const adminStr = localStorage.getItem('admin');
+
+  if (!token || !adminStr) {
+    return { admin: null, isAuthenticated: false, isLoading: false };
+  }
+
+  try {
+    const admin = JSON.parse(adminStr) as Admin;
+    return { admin, isAuthenticated: true, isLoading: false };
+  } catch {
+    return { admin: null, isAuthenticated: false, isLoading: false };
+  }
+}
+
 export const useAuth = create<AuthState>((set, get) => ({
-  admin: null,
-  isLoading: true,
-  isAuthenticated: false,
+  ...readStoredAdmin(),
 
   login: async (email: string, password: string) => {
     const response = await api.post<LoginResponse>('/api/auth/login', { email, password });
@@ -43,22 +61,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   loadSession: () => {
-    if (typeof window === 'undefined') {
-      set({ isLoading: false });
-      return;
-    }
-    const token = localStorage.getItem('accessToken');
-    const adminStr = localStorage.getItem('admin');
-    if (token && adminStr) {
-      try {
-        const admin = JSON.parse(adminStr) as Admin;
-        set({ admin, isAuthenticated: true, isLoading: false });
-      } catch {
-        set({ isLoading: false });
-      }
-    } else {
-      set({ isLoading: false });
-    }
+    set(readStoredAdmin());
   },
 
   refreshProfile: async () => {

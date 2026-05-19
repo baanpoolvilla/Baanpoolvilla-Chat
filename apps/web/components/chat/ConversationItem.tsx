@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { Conversation } from '@/types';
 import { cn, formatTimeAgo, truncate } from '@/lib/utils';
 import TagBadge from './TagBadge';
@@ -8,16 +9,16 @@ import PlatformBadge from '@/components/common/PlatformBadge';
 interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
-  onClick: () => void;
+  onSelect: (conversation: Conversation) => void;
 }
 
-export default function ConversationItem({ conversation, isActive, onClick }: ConversationItemProps) {
+function ConversationItem({ conversation, isActive, onSelect }: ConversationItemProps) {
   const { contact, platform, lastMessage, lastMsgAt, unreadCount, tags, assignments, priority, notes } = conversation;
   const displayName = (notes && notes.length > 0) ? notes[0].content : contact.displayName;
 
   return (
     <button
-      onClick={onClick}
+      onClick={() => onSelect(conversation)}
       className={cn(
         'flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition-colors',
         isActive ? 'bg-brand-50 border border-brand-200' : 'hover:bg-gray-50 border border-transparent'
@@ -27,7 +28,7 @@ export default function ConversationItem({ conversation, isActive, onClick }: Co
       <div className="relative flex-shrink-0">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-medium">
           {contact.avatarUrl ? (
-            <img src={contact.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+            <img src={contact.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" loading="lazy" decoding="async" />
           ) : (
             contact.displayName.charAt(0).toUpperCase()
           )}
@@ -96,3 +97,5 @@ export default function ConversationItem({ conversation, isActive, onClick }: Co
     </button>
   );
 }
+
+export default memo(ConversationItem);

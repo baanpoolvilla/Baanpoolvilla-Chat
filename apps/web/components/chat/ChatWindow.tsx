@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useLayoutEffect, useState } from 'react';
+import { useRef, useEffect, useLayoutEffect } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
@@ -11,13 +11,14 @@ import PlatformBadge from '@/components/common/PlatformBadge';
 
 interface ChatWindowProps {
   conversationId: string;
+  conversation: Conversation | null;
+  isConversationLoading?: boolean;
   onToggleInfo?: () => void;
   contactNameOverride?: string;
   onCloseChat?: () => void;
 }
 
-export default function ChatWindow({ conversationId, onToggleInfo, contactNameOverride, onCloseChat }: ChatWindowProps) {
-  const [conversation, setConversation] = useState<Conversation | null>(null);
+export default function ChatWindow({ conversationId, conversation, isConversationLoading = false, onToggleInfo, contactNameOverride, onCloseChat }: ChatWindowProps) {
   const { messages, isLoading, hasMore, loadMore, sendMessage } = useMessages(conversationId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -29,9 +30,6 @@ export default function ChatWindow({ conversationId, onToggleInfo, contactNameOv
 
   useEffect(() => {
     shouldJumpToBottomRef.current = true;
-    api.get(`/api/conversations/${conversationId}`).then((res) => {
-      setConversation(res.data.data || res.data);
-    }).catch(() => {});
   }, [conversationId]);
 
   useLayoutEffect(() => {
@@ -74,7 +72,7 @@ export default function ChatWindow({ conversationId, onToggleInfo, contactNameOv
         </div>
         <div className="flex-1">
           <h3 className="text-sm font-semibold text-gray-900">
-            {contactNameOverride ?? conversation?.contact?.displayName ?? 'Loading...'}
+            {contactNameOverride ?? conversation?.contact?.displayName ?? (isConversationLoading ? 'Loading...' : 'Unknown contact')}
           </h3>
           <div className="flex items-center gap-2">
             {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}

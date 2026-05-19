@@ -1,4 +1,4 @@
-import { ConversationStatus, Platform, Priority } from '@prisma/client';
+import { ConversationStatus, Platform, Priority, Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { getSocketIO } from '../lib/socket';
 import { logger } from '../lib/logger';
@@ -14,7 +14,81 @@ export interface ConversationFilters {
   limit?: number;
 }
 
+export const conversationSummarySelect = Prisma.validator<Prisma.ConversationSelect>()({
+  id: true,
+  contactId: true,
+  platform: true,
+  channelId: true,
+  status: true,
+  isBot: true,
+  priority: true,
+  lastMessage: true,
+  lastMsgAt: true,
+  unreadCount: true,
+  createdAt: true,
+  updatedAt: true,
+  contact: {
+    select: {
+      id: true,
+      displayName: true,
+      avatarUrl: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  },
+  tags: {
+    select: {
+      conversationId: true,
+      tagId: true,
+      addedAt: true,
+      addedByAdminId: true,
+      tag: {
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          categoryId: true,
+          createdAt: true,
+        },
+      },
+    },
+  },
+  assignments: {
+    select: {
+      id: true,
+      conversationId: true,
+      adminId: true,
+      assignedAt: true,
+      admin: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+        },
+      },
+    },
+  },
+  notes: {
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    select: {
+      id: true,
+      conversationId: true,
+      content: true,
+      createdBy: true,
+      createdAt: true,
+    },
+  },
+});
+
 export class ConversationService {
+  static async getSummaryById(id: string) {
+    return prisma.conversation.findUnique({
+      where: { id },
+      select: conversationSummarySelect,
+    });
+  }
+
   static async list(filters: ConversationFilters) {
     const page = filters.page || 1;
     const limit = filters.limit || 50;
@@ -48,21 +122,7 @@ export class ConversationService {
     const [conversations, total] = await Promise.all([
       prisma.conversation.findMany({
         where,
-        include: {
-          contact: true,
-          tags: { include: { tag: { include: { category: true } } } },
-          assignments: {
-            include: { admin: { select: { id: true, name: true, avatar: true } } },
-          },
-          messages: {
-            take: 1,
-            orderBy: { sentAt: 'desc' },
-          },
-          notes: {
-            take: 1,
-            orderBy: { createdAt: 'desc' },
-          },
-        },
+        select: conversationSummarySelect,
         orderBy: [
           { lastMsgAt: 'desc' },
         ],
@@ -108,13 +168,7 @@ export class ConversationService {
     const conversation = await prisma.conversation.update({
       where: { id },
       data,
-      include: {
-        contact: true,
-        tags: { include: { tag: true } },
-        assignments: {
-          include: { admin: { select: { id: true, name: true, avatar: true } } },
-        },
-      },
+      select: conversationSummarySelect,
     });
 
     const io = getSocketIO();
@@ -127,10 +181,7 @@ export class ConversationService {
     const conversation = await prisma.conversation.update({
       where: { id },
       data: { isBot },
-      include: {
-        contact: true,
-        tags: { include: { tag: true } },
-      },
+      select: conversationSummarySelect,
     });
 
     const io = getSocketIO();
@@ -163,16 +214,7 @@ export class ConversationService {
       },
     });
 
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: {
-        contact: true,
-        tags: { include: { tag: true } },
-        assignments: {
-          include: { admin: { select: { id: true, name: true, avatar: true } } },
-        },
-      },
-    });
+    const conversation = await ConversationService.getSummaryById(conversationId);
 
     const io = getSocketIO();
     io.emit('conversation:updated', conversation);
@@ -196,16 +238,7 @@ export class ConversationService {
       include: { tag: { include: { category: true } } },
     });
 
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: {
-        contact: true,
-        tags: { include: { tag: true } },
-        assignments: {
-          include: { admin: { select: { id: true, name: true, avatar: true } } },
-        },
-      },
-    });
+    const conversation = await ConversationService.getSummaryById(conversationId);
 
     const io = getSocketIO();
     io.emit('conversation:updated', conversation);
@@ -220,16 +253,7 @@ export class ConversationService {
       },
     });
 
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: {
-        contact: true,
-        tags: { include: { tag: true } },
-        assignments: {
-          include: { admin: { select: { id: true, name: true, avatar: true } } },
-        },
-      },
-    });
+    const conversation = await ConversationService.getSummaryById(conversationId);
 
     const io = getSocketIO();
     io.emit('conversation:updated', conversation);

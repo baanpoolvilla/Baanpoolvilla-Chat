@@ -12,12 +12,15 @@ import PlatformBadge from '@/components/common/PlatformBadge';
 
 interface ConversationInfoProps {
   conversationId: string;
+  conversation: Conversation | null;
+  isLoading?: boolean;
+  onConversationChange?: (conversation: Conversation) => void;
+  refreshConversation: () => Promise<void>;
   onClose?: () => void;
   onContactRenamed?: (contactId: string, displayName: string) => void;
 }
 
-export default function ConversationInfo({ conversationId, onClose, onContactRenamed }: ConversationInfoProps) {
-  const [conversation, setConversation] = useState<Conversation | null>(null);
+export default function ConversationInfo({ conversationId, conversation, isLoading = false, onConversationChange, refreshConversation, onClose, onContactRenamed }: ConversationInfoProps) {
   const [notes, setNotes] = useState<ConversationNote[]>([]);
   const [newNote, setNewNote] = useState('');
   const [showNoteInput, setShowNoteInput] = useState(false);
@@ -26,23 +29,14 @@ export default function ConversationInfo({ conversationId, onClose, onContactRen
   const [editingName, setEditingName] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
 
-  const fetchConversation = async () => {
-    try {
-      const res = await api.get(`/api/conversations/${conversationId}`);
-      const data = res.data.data || res.data;
-      setConversation(data);
-      setNotes(data.notes || []);
-    } catch {}
-  };
-
   useEffect(() => {
-    fetchConversation();
-  }, [conversationId]);
+    setNotes(conversation?.notes || []);
+  }, [conversation]);
 
   const handleAddTag = async (tagId: string) => {
     try {
       await api.post(`/api/conversations/${conversationId}/tags`, { tagId });
-      fetchConversation();
+      await refreshConversation();
     } catch (error) {
       console.error('Failed to add tag:', error);
     }
@@ -51,7 +45,7 @@ export default function ConversationInfo({ conversationId, onClose, onContactRen
   const handleRemoveTag = async (tagId: string) => {
     try {
       await api.delete(`/api/conversations/${conversationId}/tags/${tagId}`);
-      fetchConversation();
+      await refreshConversation();
     } catch (error) {
       console.error('Failed to remove tag:', error);
     }
@@ -63,7 +57,7 @@ export default function ConversationInfo({ conversationId, onClose, onContactRen
       const response = await api.post(`/api/conversations/${conversationId}/notes`, {
         content: newNote,
       });
-      setNotes([response.data, ...notes]);
+      setNotes((current) => [response.data, ...current]);
       setNewNote('');
       setShowNoteInput(false);
     } catch (error) {
@@ -77,7 +71,7 @@ export default function ConversationInfo({ conversationId, onClose, onContactRen
       const response = await api.patch(`/api/conversations/${conversationId}/notes/${noteId}`, {
         content: editingNoteContent,
       });
-      setNotes(notes.map((n) => (n.id === noteId ? response.data : n)));
+      setNotes((current) => current.map((note) => (note.id === noteId ? response.data : note)));
       setEditingNoteId(null);
     } catch (error) {
       console.error('Failed to edit note:', error);
@@ -87,7 +81,7 @@ export default function ConversationInfo({ conversationId, onClose, onContactRen
   const handleDeleteNote = async (noteId: string) => {
     try {
       await api.delete(`/api/conversations/${conversationId}/notes/${noteId}`);
-      setNotes(notes.filter((n) => n.id !== noteId));
+      setNotes((current) => current.filter((note) => note.id !== noteId));
     } catch (error) {
       console.error('Failed to delete note:', error);
     }
@@ -100,7 +94,7 @@ export default function ConversationInfo({ conversationId, onClose, onContactRen
         displayName: newDisplayName.trim(),
       });
       const updated = { ...conversation, contact: { ...conversation.contact, displayName: newDisplayName.trim() } };
-      setConversation(updated);
+      onConversationChange?.(updated);
       setEditingName(false);
       onContactRenamed?.(conversation.contact.id, newDisplayName.trim());
     } catch (error) {
@@ -108,8 +102,12 @@ export default function ConversationInfo({ conversationId, onClose, onContactRen
     }
   };
 
-  if (!conversation) {
+  if (isLoading && !conversation) {
     return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600" /></div>;
+  }
+
+  if (!conversation) {
+    return <div className="flex h-full items-center justify-center px-4 text-center text-sm text-gray-400">Conversation not available</div>;
   }
 
   const { contact } = conversation;

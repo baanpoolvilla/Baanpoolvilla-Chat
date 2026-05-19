@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import ConversationItem from './ConversationItem';
 import type { Conversation, ConversationStatus, Platform } from '@/types';
@@ -37,11 +37,29 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const { conversations, isLoading, isLoadingMore, hasMore, filters, setFilters, loadMore, updateContactName, markConversationRead } = useConversations();
 
+  const handleSelectConversation = useCallback((conversation: Conversation) => {
+    markConversationRead(conversation.id);
+    onSelect(conversation);
+  }, [markConversationRead, onSelect]);
+
   useEffect(() => {
     if (registerContactRenamer) {
       registerContactRenamer(updateContactName);
     }
   }, [registerContactRenamer, updateContactName]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setFilters((current) => ({
+        ...current,
+        search: search.trim() || undefined,
+      }));
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [search, setFilters]);
 
   useEffect(() => {
     if (activeId) {
@@ -87,7 +105,6 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
 
   const handleSearch = (value: string) => {
     setSearch(value);
-    setFilters({ ...filters, search: value || undefined });
   };
 
   return (
@@ -135,7 +152,10 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
                 <button
                   key={opt.value}
                   onClick={() =>
-                    setFilters({ ...filters, status: (opt.value || undefined) as ConversationStatus | undefined })
+                    setFilters((current) => ({
+                      ...current,
+                      status: (opt.value || undefined) as ConversationStatus | undefined,
+                    }))
                   }
                   className={cn(
                     'rounded-full px-3 py-1 text-xs font-medium transition-colors',
@@ -151,7 +171,10 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
             <select
               value={filters.platform || ''}
               onChange={(e) =>
-                setFilters({ ...filters, platform: (e.target.value || undefined) as Platform | undefined })
+                setFilters((current) => ({
+                  ...current,
+                  platform: (e.target.value || undefined) as Platform | undefined,
+                }))
               }
               className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
             >
@@ -182,10 +205,7 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
                 key={conv.id}
                 conversation={conv}
                 isActive={conv.id === activeId}
-                onClick={() => {
-                  markConversationRead(conv.id);
-                  onSelect(conv);
-                }}
+                onSelect={handleSelectConversation}
               />
             ))}
             {hasMore && (

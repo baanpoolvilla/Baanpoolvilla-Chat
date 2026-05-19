@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Sidebar from '@/components/layout/Sidebar';
@@ -12,21 +12,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isAuthenticated = useAuth((s) => s.isAuthenticated);
   const isLoading = useAuth((s) => s.isLoading);
   const loadSession = useAuth((s) => s.loadSession);
-  const [ready, setReady] = useState(false);
+  const hasSyncedSession = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    loadSession();
-    setReady(true);
+    if (!hasSyncedSession.current) {
+      loadSession();
+      hasSyncedSession.current = true;
+    }
   }, [loadSession]);
 
   useEffect(() => {
-    if (ready && !isLoading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [ready, isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, router]);
 
-  if (!ready || isLoading || !isAuthenticated || !admin) {
+  if (isLoading || !isAuthenticated || !admin) {
     return (
       <div className="min-h-screen bg-slate-100/70 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
