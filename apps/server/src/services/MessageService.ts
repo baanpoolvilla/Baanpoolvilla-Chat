@@ -47,6 +47,70 @@ export interface IncomingMessage {
   metadata?: Record<string, unknown>;
 }
 
+function getReplySenderLabel(replyMessage: {
+  senderType: SenderType;
+  admin?: { name: string | null } | null;
+}): string {
+  switch (replyMessage.senderType) {
+    case SenderType.CUSTOMER:
+      return 'Customer';
+    case SenderType.BOT:
+      return 'AI Bot';
+    case SenderType.SYSTEM:
+      return 'System';
+    default:
+      return replyMessage.admin?.name || 'Admin';
+  }
+}
+
+function getReplyPreviewText(replyMessage: {
+  content: string;
+  contentType: ContentType;
+}): string {
+  switch (replyMessage.contentType) {
+    case ContentType.IMAGE:
+      return replyMessage.content && replyMessage.content !== '[Image]' ? replyMessage.content : 'Photo';
+    case ContentType.VIDEO:
+      return replyMessage.content && replyMessage.content !== '[Video]' ? replyMessage.content : 'Video';
+    case ContentType.AUDIO:
+      return replyMessage.content || 'Audio';
+    case ContentType.FILE:
+      return replyMessage.content || 'File';
+    case ContentType.STICKER:
+      return 'Sticker';
+    case ContentType.LOCATION:
+      return 'Location';
+    case ContentType.TEMPLATE:
+      return replyMessage.content || 'Template';
+    default:
+      return replyMessage.content;
+  }
+}
+
+function formatQuotedOutboundText(content: string, replyMessage?: {
+  senderType: SenderType;
+  admin?: { name: string | null } | null;
+  content: string;
+  contentType: ContentType;
+} | null): string {
+  if (!replyMessage) {
+    return content;
+  }
+
+  const senderLabel = getReplySenderLabel(replyMessage);
+  const preview = getReplyPreviewText(replyMessage)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' / ')
+    .slice(0, 120);
+
+  const quoteHeader = `Reply to ${senderLabel}`;
+  const quoteBody = preview ? `> ${preview}` : '> Message';
+  return `${quoteHeader}\n${quoteBody}\n\n${content}`;
+}
+
 export class MessageService {
   static async ingest(incoming: IncomingMessage): Promise<void> {
     try {
@@ -190,6 +254,7 @@ export class MessageService {
     contentType: ContentType;
     mediaUrl?: string;
     replyToMessageId?: string;
+    clientRequestId?: string;
   }): Promise<unknown> {
     try {
       const conversation = await prisma.conversation.findUnique({
@@ -229,6 +294,7 @@ export class MessageService {
             content: params.content,
             contentType: params.contentType,
             mediaUrl: params.mediaUrl,
+            metadata: params.clientRequestId ? { clientRequestId: params.clientRequestId } : undefined,
           },
           select: messageWithReplySelect,
         });
@@ -256,19 +322,20 @@ export class MessageService {
         const { FacebookService } = await import('./platforms/FacebookService');
         const { InstagramService } = await import('./platforms/InstagramService');
         const { TikTokService } = await import('./platforms/TikTokService');
+        const transportText = formatQuotedOutboundText(params.content, message.replyToMessage);
 
         switch (conversation.platform) {
           case 'LINE':
-            await LineService.sendMessage(platformContact.platformUid, params.content, params.contentType, params.mediaUrl);
+            await LineService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
             break;
           case 'FACEBOOK':
-            await FacebookService.sendMessage(platformContact.platformUid, params.content, params.contentType, params.mediaUrl);
+            await FacebookService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
             break;
           case 'INSTAGRAM':
-            await InstagramService.sendMessage(platformContact.platformUid, params.content, params.contentType, params.mediaUrl);
+            await InstagramService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
             break;
           case 'TIKTOK':
-            await TikTokService.sendMessage(platformContact.platformUid, params.content, params.contentType, params.mediaUrl);
+            await TikTokService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
             break;
         }
       }

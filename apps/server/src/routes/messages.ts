@@ -49,6 +49,7 @@ const sendSchema = z.object({
   contentType: z.enum(['TEXT', 'IMAGE', 'VIDEO', 'AUDIO', 'FILE', 'STICKER', 'LOCATION', 'TEMPLATE']).default('TEXT'),
   mediaUrl: z.string().url().optional(),
   replyToMessageId: z.string().cuid().optional(),
+  clientRequestId: z.string().min(1).max(100).optional(),
 });
 
 router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -63,6 +64,7 @@ router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response)
       contentType: data.contentType,
       mediaUrl: data.mediaUrl,
       replyToMessageId: data.replyToMessageId,
+      clientRequestId: data.clientRequestId,
     });
 
     res.json(sentMessage);

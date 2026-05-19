@@ -5,6 +5,19 @@ import api from '@/lib/api';
 import { useSocket } from './useSocket';
 import type { Message, MessageListResponse } from '@/types';
 
+function createClientRequestId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getClientRequestId(message?: Pick<Message, 'metadata'> | null) {
+  const value = message?.metadata?.clientRequestId;
+  return typeof value === 'string' ? value : undefined;
+}
+
 export function useMessages(conversationId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,13 +69,15 @@ export function useMessages(conversationId: string | null) {
         setMessages((prev) => {
           // deduplicate: skip if already in list (added via optimistic or previous event)
           if (prev.some((m) => m.id === message.id)) return prev;
-          // replace temp optimistic message if content matches
-          const tempIdx = prev.findIndex((m) => (
-            m.id.startsWith('temp-')
-            && m.content === message.content
-            && m.contentType === message.contentType
-            && m.replyToMessageId === message.replyToMessageId
-          ));
+          const incomingClientRequestId = getClientRequestId(message);
+          const tempIdx = incomingClientRequestId
+            ? prev.findIndex((m) => getClientRequestId(m) === incomingClientRequestId)
+            : prev.findIndex((m) => (
+              m.id.startsWith('temp-')
+              && m.content === message.content
+              && m.contentType === message.contentType
+              && m.replyToMessageId === message.replyToMessageId
+            ));
           if (tempIdx !== -1) {
             const next = [...prev];
             next[tempIdx] = message;
@@ -88,6 +103,7 @@ export function useMessages(conversationId: string | null) {
     if (!conversationId) return;
 
     // Optimistic update — show message immediately
+    const clientRequestId = createClientRequestId();
     const tempId = `temp-${Date.now()}`;
     const tempMessage: Message = {
       id: tempId,
@@ -107,6 +123,7 @@ export function useMessages(conversationId: string | null) {
       content,
       contentType: contentType as Message['contentType'],
       mediaUrl,
+      metadata: { clientRequestId },
       senderType: 'ADMIN',
       isRead: true,
       sentAt: new Date().toISOString(),
@@ -120,6 +137,7 @@ export function useMessages(conversationId: string | null) {
         contentType,
         mediaUrl,
         replyToMessageId: replyToMessage?.id,
+        clientRequestId,
       });
       // Replace temp with real message from server only when payload shape is valid.
       const payload = res.data as Partial<Message> | undefined;
