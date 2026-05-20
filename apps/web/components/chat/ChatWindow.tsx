@@ -208,7 +208,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
         </div>
       )}
 
-      {/* Messages */}}
+      {/* Messages */}
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
