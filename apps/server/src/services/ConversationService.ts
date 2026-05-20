@@ -109,9 +109,13 @@ export class ConversationService {
     }
 
     if (filters.tagIds && filters.tagIds.length > 0) {
-      where.tags = {
-        some: { tagId: { in: filters.tagIds } },
-      };
+      // AND logic: conversation must have ALL selected tags
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        ...filters.tagIds.map((tagId) => ({
+          tags: { some: { tagId } },
+        })),
+      ];
     }
 
     if (filters.search) {
