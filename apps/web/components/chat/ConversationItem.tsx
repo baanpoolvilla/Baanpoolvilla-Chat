@@ -16,9 +16,7 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
   const { contact, platform, lastMessage, lastMsgAt, unreadCount, tags, assignments, priority } = conversation;
   const displayName = contact.displayName;
   const originalDisplayName =
-    contact.isNameCustomized &&
-    contact.originalDisplayName &&
-    contact.originalDisplayName !== contact.displayName
+    contact.originalDisplayName && contact.originalDisplayName !== contact.displayName
       ? contact.originalDisplayName
       : null;
 

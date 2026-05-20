@@ -94,9 +94,10 @@ router.patch('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Respo
     if (resetName) {
       const existing = await prisma.contact.findUnique({
         where: { id: req.params.id },
-        select: { originalDisplayName: true, isNameCustomized: true },
+        select: { originalDisplayName: true, isNameCustomized: true, displayName: true },
       });
-      if (existing?.originalDisplayName && existing.isNameCustomized) {
+      // Allow reset if originalDisplayName differs from current displayName (handles isNameCustomized = false edge case)
+      if (existing?.originalDisplayName && existing.originalDisplayName !== existing.displayName) {
         const contact = await prisma.contact.update({
           where: { id: req.params.id },
           data: { displayName: existing.originalDisplayName, isNameCustomized: false },

@@ -162,6 +162,10 @@ export class MessageService {
           // (only set once; never overwritten so it always reflects the first known LINE name)
           if (!contact.originalDisplayName) {
             contactUpdateData.originalDisplayName = incoming.displayName;
+            // If the stored displayName differs from LINE's real name, the admin has customized it
+            if (incoming.displayName !== contact.displayName) {
+              contactUpdateData.isNameCustomized = true;
+            }
           }
           if (Object.keys(contactUpdateData).length > 0) {
             contact = await tx.contact.update({

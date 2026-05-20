@@ -468,7 +468,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
             placeholder="Type a message..."
             disabled={disabled}
             rows={1}
-            className="min-h-[44px] w-full resize-none rounded-2xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-[15px] focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
+            className="min-h-[44px] w-full resize-none rounded-2xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
           />
         </div>
 

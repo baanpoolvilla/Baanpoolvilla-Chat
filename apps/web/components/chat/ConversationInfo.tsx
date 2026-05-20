@@ -198,7 +198,7 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
                   </button>
                 )}
               </div>
-              {contact.isNameCustomized && contact.originalDisplayName && contact.originalDisplayName !== contact.displayName && (
+              {contact.originalDisplayName && contact.originalDisplayName !== contact.displayName && (
                 <div className="flex items-center gap-1">
                   <p className="text-xs text-gray-400">{contact.originalDisplayName}</p>
                   {canModifyChat && (
