@@ -88,11 +88,22 @@ const updateContactSchema = z.object({
 router.patch('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateContactSchema.parse(req.body);
+    let originalDisplayNameUpdate: { originalDisplayName?: string } = {};
+    if (data.displayName !== undefined) {
+      const existing = await prisma.contact.findUnique({
+        where: { id: req.params.id },
+        select: { displayName: true, isNameCustomized: true },
+      });
+      // Save the original LINE name the first time an admin renames the contact
+      if (existing && !existing.isNameCustomized) {
+        originalDisplayNameUpdate = { originalDisplayName: existing.displayName };
+      }
+    }
     const contact = await prisma.contact.update({
       where: { id: req.params.id },
       data: {
         ...data,
-        ...(data.displayName !== undefined ? { isNameCustomized: true } : {}),
+        ...(data.displayName !== undefined ? { isNameCustomized: true, ...originalDisplayNameUpdate } : {}),
       },
       include: { platformLinks: true, tags: { include: { tag: true } } },
     });

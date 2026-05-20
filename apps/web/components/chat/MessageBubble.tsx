@@ -108,9 +108,19 @@ function MessageBubble({
               )}>
                 {getReplySenderLabel(message.replyToMessage, customerName)}
               </p>
-              <p className="mt-0.5 line-clamp-2 text-xs">
-                {getReplyPreviewText(message.replyToMessage)}
-              </p>
+              {message.replyToMessage.contentType === 'IMAGE' && message.replyToMessage.mediaUrl ? (
+                <img
+                  src={message.replyToMessage.mediaUrl}
+                  alt="Photo"
+                  className="mt-1 h-14 w-14 rounded-md object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : (
+                <p className="mt-0.5 line-clamp-2 text-xs">
+                  {getReplyPreviewText(message.replyToMessage)}
+                </p>
+              )}
             </div>
           )}
 

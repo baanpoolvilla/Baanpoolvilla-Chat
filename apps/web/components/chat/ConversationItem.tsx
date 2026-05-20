@@ -13,8 +13,11 @@ interface ConversationItemProps {
 }
 
 function ConversationItem({ conversation, isActive, onSelect }: ConversationItemProps) {
-  const { contact, platform, lastMessage, lastMsgAt, unreadCount, tags, assignments, priority, notes } = conversation;
-  const displayName = (notes && notes.length > 0) ? notes[0].content : contact.displayName;
+  const { contact, platform, lastMessage, lastMsgAt, unreadCount, tags, assignments, priority } = conversation;
+  const displayName = contact.displayName;
+  const originalDisplayName = contact.isNameCustomized && contact.originalDisplayName
+    ? contact.originalDisplayName
+    : null;
 
   return (
     <button
@@ -47,6 +50,11 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
           <h4 className="truncate text-sm font-semibold text-gray-900">
             {displayName}
           </h4>
+          {originalDisplayName && (
+            <p className="truncate text-xs text-gray-400 -mt-0.5">
+              {originalDisplayName}
+            </p>
+          )}
           <span className="flex-shrink-0 text-xs text-gray-400">
             {lastMsgAt ? formatTimeAgo(lastMsgAt) : ''}
           </span>

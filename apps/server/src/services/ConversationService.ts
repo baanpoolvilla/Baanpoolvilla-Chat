@@ -31,6 +31,8 @@ export const conversationSummarySelect = Prisma.validator<Prisma.ConversationSel
     select: {
       id: true,
       displayName: true,
+      originalDisplayName: true,
+      isNameCustomized: true,
       avatarUrl: true,
       createdAt: true,
       updatedAt: true,
@@ -116,6 +118,8 @@ export class ConversationService {
       where.OR = [
         { lastMessage: { contains: filters.search, mode: 'insensitive' } },
         { contact: { displayName: { contains: filters.search, mode: 'insensitive' } } },
+        { contact: { originalDisplayName: { contains: filters.search, mode: 'insensitive' } } },
+        { messages: { some: { content: { contains: filters.search, mode: 'insensitive' } } } },
       ];
     }
 

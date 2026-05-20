@@ -140,6 +140,7 @@ export class MessageService {
           contact = await tx.contact.create({
             data: {
               displayName: incoming.displayName,
+              originalDisplayName: incoming.displayName,
               avatarUrl: incoming.avatarUrl,
               platformLinks: {
                 create: {

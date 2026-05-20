@@ -23,6 +23,8 @@ export interface Admin {
 export interface Contact {
   id: string;
   displayName: string;
+  originalDisplayName?: string | null;
+  isNameCustomized?: boolean;
   avatarUrl?: string;
   phone?: string;
   email?: string;

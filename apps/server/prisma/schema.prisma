@@ -29,10 +29,11 @@ enum AdminRole {
 }
 
 model Contact {
-  id              String            @id @default(cuid())
-  displayName     String
-  isNameCustomized Boolean          @default(false)
-  avatarUrl       String?
+  id                   String            @id @default(cuid())
+  displayName          String
+  originalDisplayName  String?
+  isNameCustomized     Boolean           @default(false)
+  avatarUrl            String?
   phone           String?
   email           String?
   notes           String?
