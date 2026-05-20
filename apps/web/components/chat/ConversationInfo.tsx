@@ -103,15 +103,43 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
     if (!canModifyChat) return;
     if (!newDisplayName.trim() || !conversation) return;
     try {
-      await api.patch(`/api/contacts/${conversation.contact.id}`, {
+      const response = await api.patch(`/api/contacts/${conversation.contact.id}`, {
         displayName: newDisplayName.trim(),
       });
-      const updated = { ...conversation, contact: { ...conversation.contact, displayName: newDisplayName.trim() } };
+      const updated = {
+        ...conversation,
+        contact: {
+          ...conversation.contact,
+          displayName: response.data.displayName,
+          isNameCustomized: response.data.isNameCustomized,
+          originalDisplayName: response.data.originalDisplayName ?? null,
+        },
+      };
       onConversationChange?.(updated);
       setEditingName(false);
-      onContactRenamed?.(conversation.contact.id, newDisplayName.trim());
+      onContactRenamed?.(conversation.contact.id, response.data.displayName);
     } catch (error) {
       console.error('Failed to rename contact:', error);
+    }
+  };
+
+  const handleResetName = async () => {
+    if (!canModifyChat || !conversation) return;
+    try {
+      const response = await api.patch(`/api/contacts/${conversation.contact.id}`, { resetName: true });
+      const updated = {
+        ...conversation,
+        contact: {
+          ...conversation.contact,
+          displayName: response.data.displayName,
+          isNameCustomized: false,
+          originalDisplayName: response.data.originalDisplayName ?? null,
+        },
+      };
+      onConversationChange?.(updated);
+      onContactRenamed?.(conversation.contact.id, response.data.displayName);
+    } catch (error) {
+      console.error('Failed to reset name:', error);
     }
   };
 
@@ -157,16 +185,32 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
               <button onClick={() => setEditingName(false)} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
             </div>
           ) : (
-            <div className="mt-2 flex items-center gap-1">
-              <h3 className="text-sm font-semibold">{contact.displayName}</h3>
-              {canModifyChat && (
-                <button
-                  onClick={() => { setNewDisplayName(contact.displayName); setEditingName(true); }}
-                  className="text-gray-300 hover:text-gray-500"
-                  title="เปลี่ยนชื่อ"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
+            <div className="mt-2 flex flex-col items-center gap-0.5">
+              <div className="flex items-center gap-1">
+                <h3 className="text-sm font-semibold">{contact.displayName}</h3>
+                {canModifyChat && (
+                  <button
+                    onClick={() => { setNewDisplayName(contact.displayName); setEditingName(true); }}
+                    className="text-gray-300 hover:text-gray-500"
+                    title="เปลี่ยนชื่อ"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              {contact.isNameCustomized && contact.originalDisplayName && (
+                <div className="flex items-center gap-1">
+                  <p className="text-xs text-gray-400">{contact.originalDisplayName}</p>
+                  {canModifyChat && (
+                    <button
+                      onClick={handleResetName}
+                      className="text-gray-300 hover:text-red-400"
+                      title="คืนชื่อเดิม"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}

@@ -83,11 +83,30 @@ const updateContactSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional(),
   notes: z.string().optional(),
+  resetName: z.boolean().optional(),
 });
 
 router.patch('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const data = updateContactSchema.parse(req.body);
+    const { resetName, ...data } = updateContactSchema.parse(req.body);
+
+    // Reset custom name back to original LINE name
+    if (resetName) {
+      const existing = await prisma.contact.findUnique({
+        where: { id: req.params.id },
+        select: { originalDisplayName: true, isNameCustomized: true },
+      });
+      if (existing?.originalDisplayName && existing.isNameCustomized) {
+        const contact = await prisma.contact.update({
+          where: { id: req.params.id },
+          data: { displayName: existing.originalDisplayName, isNameCustomized: false },
+          include: { platformLinks: true, tags: { include: { tag: true } } },
+        });
+        res.json(contact);
+        return;
+      }
+    }
+
     let originalDisplayNameUpdate: { originalDisplayName?: string } = {};
     if (data.displayName !== undefined) {
       const existing = await prisma.contact.findUnique({
