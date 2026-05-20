@@ -13,6 +13,26 @@ import PlatformBadge from '@/components/common/PlatformBadge';
 import { useAuth } from '@/hooks/useAuth';
 import { canWriteChat } from '@/lib/permissions';
 
+// localStorage helpers — fallback for when server hasn't stored originalDisplayName yet
+const LS_KEY = 'chat_orig_names';
+function loadLocalOrigName(contactId: string): string | null {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}')[contactId] ?? null; } catch { return null; }
+}
+function saveLocalOrigName(contactId: string, name: string) {
+  try {
+    const m = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+    m[contactId] = name;
+    localStorage.setItem(LS_KEY, JSON.stringify(m));
+  } catch {}
+}
+function clearLocalOrigName(contactId: string) {
+  try {
+    const m = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+    delete m[contactId];
+    localStorage.setItem(LS_KEY, JSON.stringify(m));
+  } catch {}
+}
+
 interface ConversationInfoProps {
   conversationId: string;
   conversation: Conversation | null;
@@ -30,8 +50,16 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
+  const [localOrigName, setLocalOrigName] = useState<string | null>(null);
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
+
+  // Load localStorage fallback when contact changes
+  useEffect(() => {
+    if (conversation?.contact?.id) {
+      setLocalOrigName(loadLocalOrigName(conversation.contact.id));
+    }
+  }, [conversation?.contact?.id]);
 
   useEffect(() => {
     setNotes(conversation?.notes || []);
@@ -102,17 +130,35 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   const handleRenameContact = async () => {
     if (!canModifyChat) return;
     if (!newDisplayName.trim() || !conversation) return;
+    // Capture the name BEFORE rename as fallback original name
+    const previousName = conversation.contact.displayName;
     try {
       const response = await api.patch(`/api/contacts/${conversation.contact.id}`, {
         displayName: newDisplayName.trim(),
       });
+      // Use server's originalDisplayName if available; otherwise fall back to the name before rename
+      const serverOriginal = response.data.originalDisplayName ?? null;
+      const effectiveOriginal = serverOriginal
+        ?? conversation.contact.originalDisplayName
+        ?? (previousName !== newDisplayName.trim() ? previousName : null);
+
+      if (!serverOriginal && effectiveOriginal && effectiveOriginal !== response.data.displayName) {
+        // Server didn't save it — persist in localStorage so it survives page refresh
+        saveLocalOrigName(conversation.contact.id, effectiveOriginal);
+        setLocalOrigName(effectiveOriginal);
+      } else if (serverOriginal) {
+        // Server saved it — clear any stale localStorage
+        clearLocalOrigName(conversation.contact.id);
+        setLocalOrigName(null);
+      }
+
       const updated = {
         ...conversation,
         contact: {
           ...conversation.contact,
           displayName: response.data.displayName,
-          isNameCustomized: response.data.isNameCustomized,
-          originalDisplayName: response.data.originalDisplayName ?? null,
+          isNameCustomized: response.data.isNameCustomized ?? true,
+          originalDisplayName: effectiveOriginal,
         },
       };
       onConversationChange?.(updated);
@@ -125,19 +171,30 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
 
   const handleResetName = async () => {
     if (!canModifyChat || !conversation) return;
+    const contact = conversation.contact;
+    const originalName = contact.originalDisplayName || localOrigName;
+    if (!originalName || originalName === contact.displayName) return;
     try {
-      const response = await api.patch(`/api/contacts/${conversation.contact.id}`, { resetName: true });
+      // Try server resetName first (new server); if it doesn't restore properly, send displayName directly
+      let response = await api.patch(`/api/contacts/${contact.id}`, { resetName: true });
+      // Detect if old server ignored resetName (displayName didn't change back to original)
+      if (response.data.displayName !== originalName) {
+        response = await api.patch(`/api/contacts/${contact.id}`, { displayName: originalName });
+      }
+      // Clear localStorage fallback after successful reset
+      clearLocalOrigName(contact.id);
+      setLocalOrigName(null);
       const updated = {
         ...conversation,
         contact: {
-          ...conversation.contact,
-          displayName: response.data.displayName,
+          ...contact,
+          displayName: response.data.displayName ?? originalName,
           isNameCustomized: false,
-          originalDisplayName: response.data.originalDisplayName ?? null,
+          originalDisplayName: null,
         },
       };
       onConversationChange?.(updated);
-      onContactRenamed?.(conversation.contact.id, response.data.displayName);
+      onContactRenamed?.(contact.id, response.data.displayName ?? originalName);
     } catch (error) {
       console.error('Failed to reset name:', error);
     }
@@ -152,6 +209,12 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   }
 
   const { contact } = conversation;
+  // Effective original name: prefer server value, then localStorage fallback
+  const effectiveOriginalName =
+    (contact.originalDisplayName && contact.originalDisplayName !== contact.displayName
+      ? contact.originalDisplayName
+      : null) ??
+    (localOrigName && localOrigName !== contact.displayName ? localOrigName : null);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto bg-white">
@@ -198,9 +261,9 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
                   </button>
                 )}
               </div>
-              {contact.originalDisplayName && contact.originalDisplayName !== contact.displayName && (
+              {effectiveOriginalName && (
                 <div className="flex items-center gap-1">
-                  <p className="text-xs text-gray-400">{contact.originalDisplayName}</p>
+                  <p className="text-xs text-gray-400">{effectiveOriginalName}</p>
                   {canModifyChat && (
                     <button
                       onClick={handleResetName}
