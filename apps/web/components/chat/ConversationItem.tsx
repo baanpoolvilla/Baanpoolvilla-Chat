@@ -15,9 +15,12 @@ interface ConversationItemProps {
 function ConversationItem({ conversation, isActive, onSelect }: ConversationItemProps) {
   const { contact, platform, lastMessage, lastMsgAt, unreadCount, tags, assignments, priority } = conversation;
   const displayName = contact.displayName;
-  const originalDisplayName = contact.isNameCustomized && contact.originalDisplayName
-    ? contact.originalDisplayName
-    : null;
+  const originalDisplayName =
+    contact.isNameCustomized &&
+    contact.originalDisplayName &&
+    contact.originalDisplayName !== contact.displayName
+      ? contact.originalDisplayName
+      : null;
 
   return (
     <button
@@ -50,15 +53,15 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
           <h4 className="truncate text-sm font-semibold text-gray-900">
             {displayName}
           </h4>
-          {originalDisplayName && (
-            <p className="truncate text-xs text-gray-400 -mt-0.5">
-              {originalDisplayName}
-            </p>
-          )}
           <span className="flex-shrink-0 text-xs text-gray-400">
             {lastMsgAt ? formatTimeAgo(lastMsgAt) : ''}
           </span>
         </div>
+        {originalDisplayName && (
+          <p className="truncate text-xs text-gray-400">
+            {originalDisplayName}
+          </p>
+        )}
 
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <p className="truncate text-xs text-gray-500">
