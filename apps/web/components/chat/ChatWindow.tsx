@@ -77,6 +77,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const openSearch = () => setSearchOpen(true);
   const closeSearch = () => { setSearchOpen(false); setSearchQuery(''); setCurrentMatchIdx(0); };
 
+  useLayoutEffect(() => {
     if (messages.length === 0) return;
 
     const behavior: ScrollBehavior = shouldJumpToBottomRef.current ? 'auto' : 'smooth';
