@@ -15,6 +15,25 @@ interface MessageBubbleProps {
   customerPlatform?: Platform;
   canReply?: boolean;
   onReply?: (message: Message) => void;
+  highlight?: string;
+  isCurrentMatch?: boolean;
+}
+
+function highlightText(text: string, query: string) {
+  if (!query) return <>{text}</>;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-yellow-300 text-gray-900 rounded-sm px-0.5">{part}</mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
 }
 
 function MessageBubble({
@@ -24,6 +43,8 @@ function MessageBubble({
   customerPlatform,
   canReply = false,
   onReply,
+  highlight,
+  isCurrentMatch,
 }: MessageBubbleProps) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const isCustomer = message.senderType === 'CUSTOMER';
@@ -77,10 +98,11 @@ function MessageBubble({
 
         <div
           className={cn(
-            'max-w-[82%] rounded-2xl px-3 py-2.5 sm:max-w-[70%] sm:px-4 sm:py-2',
+            'max-w-[82%] rounded-2xl px-3 py-2.5 sm:max-w-[70%] sm:px-4 sm:py-2 transition-shadow',
             isCustomer && 'bg-gray-100 text-gray-900 rounded-bl-md',
             isAdmin && 'bg-brand-600 text-white rounded-br-md',
-            isBot && 'bg-purple-100 text-purple-900 rounded-br-md'
+            isBot && 'bg-purple-100 text-purple-900 rounded-br-md',
+            isCurrentMatch && 'ring-2 ring-yellow-400 ring-offset-1'
           )}
         >
           {/* Sender label */}
@@ -125,7 +147,7 @@ function MessageBubble({
           )}
 
           {/* Content */}
-          {renderContent(message, setLightboxUrl)}
+          {renderContent(message, setLightboxUrl, highlight)}
 
           {/* Timestamp */}
           <div className={cn(
@@ -170,7 +192,7 @@ function MessageBubble({
   );
 }
 
-function renderContent(message: Message, onImageClick: (url: string) => void) {
+function renderContent(message: Message, onImageClick: (url: string) => void, highlight?: string) {
   switch (message.contentType) {
     case 'IMAGE':
       return (
@@ -246,7 +268,11 @@ function renderContent(message: Message, onImageClick: (url: string) => void) {
         return <p className="text-sm">{message.content}</p>;
       }
     default:
-      return <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>;
+      return (
+        <p className="text-sm whitespace-pre-wrap break-words">
+          {highlight ? highlightText(message.content, highlight) : message.content}
+        </p>
+      );
   }
 }
 

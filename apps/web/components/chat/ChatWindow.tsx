@@ -1,11 +1,11 @@
 'use client';
 
-import { useRef, useEffect, useLayoutEffect, useState } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import type { Conversation, Message } from '@/types';
-import { ChevronLeft, Info, Loader2, X } from 'lucide-react';
+import { ChevronLeft, ChevronUp, ChevronDown, Info, Loader2, Search, X } from 'lucide-react';
 import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +26,9 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldJumpToBottomRef = useRef(true);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
 
@@ -41,9 +44,39 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   useEffect(() => {
     shouldJumpToBottomRef.current = true;
     setReplyingTo(null);
+    setSearchOpen(false);
+    setSearchQuery('');
+    setCurrentMatchIdx(0);
   }, [conversationId]);
 
-  useLayoutEffect(() => {
+  const matchIds = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return messages
+      .filter((m) => m.contentType === 'TEXT' && m.content.toLowerCase().includes(q))
+      .map((m) => m.id);
+  }, [messages, searchQuery]);
+
+  useEffect(() => {
+    if (matchIds.length === 0) return;
+    const msgId = matchIds[currentMatchIdx] ?? matchIds[0];
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const msgEl = container.querySelector(`[data-msg-id="${msgId}"]`) as HTMLElement | null;
+    if (!msgEl) return;
+    const containerRect = container.getBoundingClientRect();
+    const msgRect = msgEl.getBoundingClientRect();
+    const relativeTop = msgRect.top - containerRect.top + container.scrollTop;
+    const center = relativeTop - container.clientHeight / 2 + msgEl.clientHeight / 2;
+    container.scrollTo({ top: Math.max(0, center), behavior: 'smooth' });
+  }, [currentMatchIdx, matchIds]);
+
+  const goToNextMatch = () => setCurrentMatchIdx((i) => (matchIds.length === 0 ? 0 : (i + 1) % matchIds.length));
+  const goToPrevMatch = () => setCurrentMatchIdx((i) => (matchIds.length === 0 ? 0 : (i - 1 + matchIds.length) % matchIds.length));
+
+  const openSearch = () => setSearchOpen(true);
+  const closeSearch = () => { setSearchOpen(false); setSearchQuery(''); setCurrentMatchIdx(0); };
+
     if (messages.length === 0) return;
 
     const behavior: ScrollBehavior = shouldJumpToBottomRef.current ? 'auto' : 'smooth';
@@ -106,6 +139,13 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={openSearch}
+            className={`rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 ${searchOpen ? 'bg-gray-100 text-gray-700' : ''}`}
+            title="ค้นหาข้อความในแชท"
+          >
+            <Search className="h-4 w-4" />
+          </button>
           {onCloseChat && (
             <button
               onClick={onCloseChat}
@@ -127,7 +167,47 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
         </div>
       </div>
 
-      {/* Messages */}
+      {/* In-chat search bar */}
+      {searchOpen && (
+        <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-gray-400" />
+          <input
+            autoFocus
+            type="text"
+            placeholder="ค้นหาข้อความในแชท..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentMatchIdx(0); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.shiftKey ? goToPrevMatch() : goToNextMatch(); } if (e.key === 'Escape') closeSearch(); }}
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+          />
+          {searchQuery && (
+            <span className="shrink-0 text-xs text-gray-500">
+              {matchIds.length === 0 ? 'ไม่พบ' : `${currentMatchIdx + 1}/${matchIds.length}`}
+            </span>
+          )}
+          <button
+            onClick={goToPrevMatch}
+            disabled={matchIds.length === 0}
+            className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-30"
+            title="ก่อนหน้า"
+          >
+            <ChevronUp className="h-4 w-4" />
+          </button>
+          <button
+            onClick={goToNextMatch}
+            disabled={matchIds.length === 0}
+            className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-30"
+            title="ถัดไป"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+          <button onClick={closeSearch} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" title="ปิด">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Messages */}}
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
@@ -147,17 +227,23 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                 Load older messages
               </button>
             )}
-            {messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                customerName={conversation?.contact?.displayName}
-                customerAvatarUrl={conversation?.contact?.avatarUrl}
-                customerPlatform={conversation?.platform}
-                canReply={canModifyChat}
-                onReply={setReplyingTo}
-              />
-            ))}
+            {messages.map((msg) => {
+              const matchIdx = matchIds.indexOf(msg.id);
+              return (
+                <div key={msg.id} data-msg-id={msg.id}>
+                  <MessageBubble
+                    message={msg}
+                    customerName={conversation?.contact?.displayName}
+                    customerAvatarUrl={conversation?.contact?.avatarUrl}
+                    customerPlatform={conversation?.platform}
+                    canReply={canModifyChat}
+                    onReply={setReplyingTo}
+                    highlight={searchQuery.trim() || undefined}
+                    isCurrentMatch={matchIdx !== -1 && matchIdx === currentMatchIdx}
+                  />
+                </div>
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
         )}

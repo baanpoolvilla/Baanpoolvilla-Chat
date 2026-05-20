@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import ConversationItem from './ConversationItem';
-import type { Conversation, ConversationStatus, Platform } from '@/types';
+import type { Conversation, ConversationStatus, Platform, Tag } from '@/types';
 import { Search, Filter, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
@@ -35,6 +35,8 @@ const platformOptions: { value: Platform | ''; label: string }[] = [
 export default function ConversationList({ activeId, onSelect, registerContactRenamer }: ConversationListProps) {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const listContainerRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const admin = useAuth((s) => s.admin);
@@ -48,6 +50,17 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
 
     onSelect(conversation);
   }, [canModifyChat, markConversationRead, onSelect]);
+
+  useEffect(() => {
+    api.get<Tag[]>('/api/tags').then((r) => setAllTags(r.data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setFilters((current) => ({
+      ...current,
+      tagIds: selectedTagIds.length > 0 ? selectedTagIds.join(',') : undefined,
+    }));
+  }, [selectedTagIds, setFilters]);
 
   useEffect(() => {
     if (registerContactRenamer) {
@@ -193,6 +206,33 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
                 </option>
               ))}
             </select>
+            {allTags.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-medium text-gray-500">แท็ก</p>
+                <div className="flex flex-wrap gap-1">
+                  {allTags.map((tag) => {
+                    const active = selectedTagIds.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        onClick={() =>
+                          setSelectedTagIds((prev) =>
+                            active ? prev.filter((id) => id !== tag.id) : [...prev, tag.id]
+                          )
+                        }
+                        className={cn(
+                          'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+                          active ? 'text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                        )}
+                        style={active ? { backgroundColor: tag.color, borderColor: tag.color } : undefined}
+                      >
+                        {tag.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
