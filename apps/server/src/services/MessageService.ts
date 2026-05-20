@@ -286,6 +286,7 @@ export class MessageService {
         throw new Error('Conversation not found');
       }
 
+      let replyTargetQuoteToken: string | undefined;
       const message = await prisma.$transaction(async (tx) => {
         if (params.replyToMessageId) {
           const replyTarget = await tx.message.findFirst({
@@ -293,12 +294,13 @@ export class MessageService {
               id: params.replyToMessageId,
               conversationId: params.conversationId,
             },
-            select: { id: true },
+            select: { id: true, metadata: true },
           });
 
           if (!replyTarget) {
             throw new Error('Reply target not found');
           }
+          replyTargetQuoteToken = (replyTarget.metadata as Record<string, unknown>)?.quoteToken as string | undefined;
         }
 
         const msg = await tx.message.create({
@@ -341,9 +343,32 @@ export class MessageService {
         const transportText = formatQuotedOutboundText(params.content, message.replyToMessage);
 
         switch (conversation.platform) {
-          case 'LINE':
-            await LineService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
+          case 'LINE': {
+            // Use native LINE Quote Reply when the target message has a quoteToken
+            // (only Text and Sticker support native quoteToken per LINE Messaging API)
+            const canNativeQuote = Boolean(replyTargetQuoteToken) &&
+              (params.contentType === ContentType.TEXT || params.contentType === ContentType.STICKER);
+            const lineContent = canNativeQuote ? params.content : transportText;
+            const lineQuoteToken = canNativeQuote ? replyTargetQuoteToken : undefined;
+
+            const lineResult = await LineService.sendMessage(
+              platformContact.platformUid,
+              lineContent,
+              params.contentType,
+              params.mediaUrl,
+              lineQuoteToken,
+            );
+
+            // Save the quoteToken from LINE's response so this message can be natively quoted later
+            if (lineResult.quoteToken) {
+              const existingMeta = (message.metadata as Record<string, unknown>) ?? {};
+              await prisma.message.update({
+                where: { id: message.id },
+                data: { metadata: { ...existingMeta, quoteToken: lineResult.quoteToken } },
+              });
+            }
             break;
+          }
           case 'FACEBOOK':
             await FacebookService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
             break;

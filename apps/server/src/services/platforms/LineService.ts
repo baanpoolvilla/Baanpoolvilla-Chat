@@ -31,12 +31,13 @@ export class LineService {
     recipientId: string,
     content: string,
     contentType: ContentType | string,
-    mediaUrl?: string
-  ): Promise<void> {
+    mediaUrl?: string,
+    quoteToken?: string
+  ): Promise<{ quoteToken?: string }> {
     const accessToken = await LineService.getAccessToken();
     if (!accessToken) {
       logger.warn('LINE_ACCESS_TOKEN not configured, skipping send');
-      return;
+      return {};
     }
 
     try {
@@ -89,7 +90,12 @@ export class LineService {
           message = { type: 'text', text: content };
       }
 
-      await axios.post(
+      // Add quoteToken for native LINE Quote Reply (only Text and Sticker support quoteToken)
+      if (quoteToken && (contentType === 'TEXT' || contentType === 'STICKER')) {
+        message.quoteToken = quoteToken;
+      }
+
+      const response = await axios.post(
         `${LineService.API_URL}/push`,
         {
           to: recipientId,
@@ -103,7 +109,12 @@ export class LineService {
         }
       );
 
+      const sentQuoteToken = (
+        response.data as { sentMessages?: Array<{ id: string; quoteToken?: string }> }
+      )?.sentMessages?.[0]?.quoteToken;
+
       logger.debug('LINE message sent', { recipientId });
+      return { quoteToken: sentQuoteToken };
     } catch (error) {
       logger.error('LINE sendMessage failed', { error, recipientId });
       throw error;
