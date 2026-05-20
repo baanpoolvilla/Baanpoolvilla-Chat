@@ -30,7 +30,12 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const canModifyChat = canWriteChat(admin?.role);
 
   const scrollToBottom = (behavior: ScrollBehavior) => {
-    messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+    // Use scrollTop directly instead of scrollIntoView — avoids iOS Safari bug
+    // where scrollIntoView scrolls through overflow:hidden ancestor elements,
+    // causing the entire page layout to shift and the header to disappear.
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
   };
 
   useEffect(() => {

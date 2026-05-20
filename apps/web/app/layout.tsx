@@ -27,8 +27,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${sarabun.className} min-h-screen bg-gray-50 antialiased`}>{children}</body>
+    <html lang="en" className="h-full overflow-hidden">
+      <body className={`${sarabun.className} h-full overflow-hidden bg-gray-50 antialiased`}>{children}</body>
     </html>
   );
 }
