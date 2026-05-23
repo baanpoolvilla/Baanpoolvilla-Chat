@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useState, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, Platform } from '@/types';
 import { format } from 'date-fns';
@@ -55,6 +55,42 @@ function MessageBubble({
   isLastInGroup = true,
 }: MessageBubbleProps) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchMoved = useRef(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!onContextMenu) return;
+    touchMoved.current = false;
+    const touch = e.touches[0];
+    const x = touch.clientX;
+    const y = touch.clientY;
+    longPressTimer.current = setTimeout(() => {
+      if (!touchMoved.current) {
+        // สั่นเบาๆ บน mobile ถ้า vibration API รองรับ
+        if (navigator.vibrate) navigator.vibrate(30);
+        onContextMenu(
+          { clientX: x, clientY: y, preventDefault: () => {} } as React.MouseEvent,
+          message
+        );
+      }
+    }, 500);
+  }, [onContextMenu, message]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback(() => {
+    touchMoved.current = true;
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
   const isCustomer = message.senderType === 'CUSTOMER';
   const isBot = message.senderType === 'BOT';
   const isSystem = message.senderType === 'SYSTEM';
@@ -115,6 +151,9 @@ function MessageBubble({
 
         <div
           onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, message); } : undefined}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchMove={handleTouchMove}
           className={cn(
             'rounded-2xl px-3 py-2 sm:px-4 transition-shadow cursor-default select-text',
             isCustomer && 'bg-white text-gray-900 rounded-bl-sm shadow-sm border border-gray-100',

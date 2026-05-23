@@ -34,18 +34,22 @@ export default function MessageContextMenu({
   const adjustedY = Math.min(y, window.innerHeight - 160);
 
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
         onClose();
       }
     };
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    document.addEventListener('mousedown', handleClick);
+    // ใช้ทั้ง mousedown และ touchstart เพื่อรองรับ mobile
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown, { passive: true });
     document.addEventListener('keydown', handleKey);
     return () => {
-      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
       document.removeEventListener('keydown', handleKey);
     };
   }, [onClose]);
