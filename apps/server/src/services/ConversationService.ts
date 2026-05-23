@@ -49,6 +49,7 @@ export const conversationSummarySelect = Prisma.validator<Prisma.ConversationSel
           id: true,
           name: true,
           color: true,
+          description: true,
           categoryId: true,
           createdAt: true,
         },
