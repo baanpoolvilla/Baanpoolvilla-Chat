@@ -57,16 +57,19 @@ function MessageBubble({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchMoved = useRef(false);
+  // ป้องกัน click หลัง long press ปล่อยนิ้ว
+  const longPressJustFired = useRef(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!onContextMenu) return;
     touchMoved.current = false;
+    longPressJustFired.current = false;
     const touch = e.touches[0];
     const x = touch.clientX;
     const y = touch.clientY;
     longPressTimer.current = setTimeout(() => {
       if (!touchMoved.current) {
-        // สั่นเบาๆ บน mobile ถ้า vibration API รองรับ
+        longPressJustFired.current = true;
         if (navigator.vibrate) navigator.vibrate(30);
         onContextMenu(
           { clientX: x, clientY: y, preventDefault: () => {} } as React.MouseEvent,
@@ -76,10 +79,14 @@ function MessageBubble({
     }, 500);
   }, [onContextMenu, message]);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
+    }
+    // ถ้า long press เพิ่งยิง ป้องกัน touchend scroll/select behavior
+    if (longPressJustFired.current) {
+      e.preventDefault();
     }
   }, []);
 
@@ -88,6 +95,15 @@ function MessageBubble({
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
+    }
+  }, []);
+
+  // ป้องกัน click event ที่ตามหลัง long press
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (longPressJustFired.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      longPressJustFired.current = false;
     }
   }, []);
 
@@ -154,6 +170,7 @@ function MessageBubble({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onTouchMove={handleTouchMove}
+          onClick={handleClick}
           className={cn(
             'rounded-2xl px-3 py-2 sm:px-4 transition-shadow cursor-default select-text',
             isCustomer && 'bg-white text-gray-900 rounded-bl-sm shadow-sm border border-gray-100',
@@ -177,34 +194,46 @@ function MessageBubble({
           )}
 
           {/* Reply preview */}
-          {message.replyToMessage && (
-            <div className={cn(
-              'mb-2 rounded-xl border-l-2 px-3 py-1.5',
-              isCustomer && 'border-gray-300 bg-gray-50 text-gray-700',
-              isAdmin && 'border-white/40 bg-white/10 text-brand-50',
-              isBot && 'border-purple-300 bg-purple-50 text-purple-800'
-            )}>
-              <p className={cn(
-                'text-[10px] font-semibold',
-                isCustomer ? 'text-gray-500' : isAdmin ? 'text-brand-100' : 'text-purple-500'
+          {message.replyToMessage && (() => {
+            const rm = message.replyToMessage;
+            // หา thumbnail URL สำหรับ IMAGE และ STICKER
+            let thumbUrl: string | null = null;
+            if (rm.contentType === 'IMAGE' && rm.mediaUrl) {
+              thumbUrl = rm.mediaUrl;
+            } else if (rm.contentType === 'STICKER') {
+              const m = rm.content.match(/\[Sticker:\s*\d+\/(\d+)\]/);
+              if (m) thumbUrl = `https://stickershop.line-scdn.net/stickershop/v1/sticker/${m[1]}/android/sticker.png`;
+            }
+            return (
+              <div className={cn(
+                'mb-2 flex items-center gap-2 rounded-xl border-l-2 px-3 py-1.5',
+                isCustomer && 'border-gray-300 bg-gray-50 text-gray-700',
+                isAdmin && 'border-white/40 bg-white/10 text-brand-50',
+                isBot && 'border-purple-300 bg-purple-50 text-purple-800'
               )}>
-                {getReplySenderLabel(message.replyToMessage, customerName)}
-              </p>
-              {message.replyToMessage.contentType === 'IMAGE' && message.replyToMessage.mediaUrl ? (
-                <img
-                  src={message.replyToMessage.mediaUrl}
-                  alt="Photo"
-                  className="mt-1 h-12 w-12 rounded-md object-cover"
-                  loading="lazy"
-                  decoding="async"
-                />
-              ) : (
-                <p className="mt-0.5 line-clamp-2 text-xs opacity-80">
-                  {getReplyPreviewText(message.replyToMessage)}
-                </p>
-              )}
-            </div>
-          )}
+                <div className="min-w-0 flex-1">
+                  <p className={cn(
+                    'text-[10px] font-semibold',
+                    isCustomer ? 'text-gray-500' : isAdmin ? 'text-brand-100' : 'text-purple-500'
+                  )}>
+                    {getReplySenderLabel(rm, customerName)}
+                  </p>
+                  <p className="mt-0.5 line-clamp-1 text-xs opacity-80">
+                    {getReplyPreviewText(rm)}
+                  </p>
+                </div>
+                {thumbUrl && (
+                  <img
+                    src={thumbUrl}
+                    alt="preview"
+                    className="h-10 w-10 flex-shrink-0 rounded-md object-contain"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                )}
+              </div>
+            );
+          })()}
 
           {/* Content */}
           {renderContent(message, setLightboxUrl, highlight)}
