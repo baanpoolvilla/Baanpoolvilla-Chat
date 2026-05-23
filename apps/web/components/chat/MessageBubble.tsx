@@ -4,7 +4,7 @@ import { memo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, Platform } from '@/types';
 import { format } from 'date-fns';
-import { Bot, Download, Reply, X } from 'lucide-react';
+import { Bot, Download, Pin, X } from 'lucide-react';
 import PlatformBadge from '@/components/common/PlatformBadge';
 import { getReplyPreviewText, getReplySenderLabel } from '@/lib/messageReply';
 
@@ -14,7 +14,8 @@ interface MessageBubbleProps {
   customerAvatarUrl?: string;
   customerPlatform?: Platform;
   canReply?: boolean;
-  onReply?: (message: Message) => void;
+  canPin?: boolean;
+  onContextMenu?: (e: React.MouseEvent, message: Message) => void;
   highlight?: string;
   isCurrentMatch?: boolean;
   /** ข้อความนี้ส่งต่อเนื่องจากคนเดิม — ซ่อน avatar + ชื่อ ลด margin */
@@ -46,7 +47,8 @@ function MessageBubble({
   customerAvatarUrl,
   customerPlatform,
   canReply = false,
-  onReply,
+  canPin = false,
+  onContextMenu,
   highlight,
   isCurrentMatch,
   isGrouped = false,
@@ -100,24 +102,21 @@ function MessageBubble({
         'relative min-w-0 max-w-[72%] sm:max-w-[60%]',
         isCustomer ? 'items-start' : 'items-end'
       )}>
-        {/* Reply button */}
-        {canReply && onReply && (
-          <button
-            type="button"
-            onClick={() => onReply(message)}
-            className={cn(
-              'absolute z-10 rounded-full border border-gray-200 bg-white p-1.5 text-gray-500 shadow-sm transition hover:border-brand-300 hover:text-brand-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100',
-              isCustomer ? '-right-2 top-1' : '-left-2 top-1'
-            )}
-            title="Reply"
-          >
-            <Reply className="h-3.5 w-3.5" />
-          </button>
+        {/* Pin badge */}
+        {message.isPinned && (
+          <div className={cn(
+            'absolute -top-2 z-10 flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700',
+            isCustomer ? 'left-2' : 'right-2'
+          )}>
+            <Pin className="h-2.5 w-2.5" />
+            ปักหมุด
+          </div>
         )}
 
         <div
+          onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, message); } : undefined}
           className={cn(
-            'rounded-2xl px-3 py-2 sm:px-4 transition-shadow',
+            'rounded-2xl px-3 py-2 sm:px-4 transition-shadow cursor-default select-text',
             isCustomer && 'bg-white text-gray-900 rounded-bl-sm shadow-sm border border-gray-100',
             isAdmin && 'bg-brand-600 text-white rounded-br-sm',
             isBot && 'bg-purple-100 text-purple-900 rounded-br-sm',

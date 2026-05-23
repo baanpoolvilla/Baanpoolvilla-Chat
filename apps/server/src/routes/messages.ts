@@ -82,4 +82,41 @@ router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response)
   }
 });
 
+router.get('/pinned', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { conversationId } = req.query;
+    if (!conversationId) {
+      res.status(400).json({ error: 'conversationId required' });
+      return;
+    }
+    const messages = await prisma.message.findMany({
+      where: { conversationId: conversationId as string, isPinned: true },
+      select: messageWithReplySelect,
+      orderBy: { pinnedAt: 'desc' },
+    });
+    res.json({ messages });
+  } catch (error) {
+    logger.error('Get pinned messages error', { error });
+    res.status(500).json({ error: 'Failed to get pinned messages' });
+  }
+});
+
+const pinSchema = z.object({ isPinned: z.boolean() });
+
+router.patch('/:id/pin', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = pinSchema.parse(req.body);
+    const { MessageService } = await import('../services/MessageService');
+    const message = await MessageService.togglePin(req.params.id, data.isPinned);
+    res.json(message);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    logger.error('Pin message error', { error });
+    res.status(500).json({ error: 'Failed to pin message' });
+  }
+});
+
 export default router;

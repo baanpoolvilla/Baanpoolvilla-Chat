@@ -29,6 +29,8 @@ export const messageWithReplySelect = {
   metadata: true,
   platformMsgId: true,
   isRead: true,
+  isPinned: true,
+  pinnedAt: true,
   sentAt: true,
   admin: { select: { id: true, name: true, avatar: true } },
   replyToMessage: { select: messageReplyPreviewSelect },
@@ -405,5 +407,21 @@ export class MessageService {
       logger.error('MessageService.sendAdminMessage failed', { error, params });
       throw error;
     }
+  }
+
+  static async togglePin(messageId: string, isPinned: boolean) {
+    const message = await prisma.message.update({
+      where: { id: messageId },
+      data: {
+        isPinned,
+        pinnedAt: isPinned ? new Date() : null,
+      },
+      select: messageWithReplySelect,
+    });
+
+    const io = getSocketIO();
+    io.to(`conversation:${message.conversationId}`).emit('message:updated', message);
+
+    return message;
   }
 }

@@ -4,10 +4,11 @@ import { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import { useSocket } from '@/hooks/useSocket';
 import MessageBubble from './MessageBubble';
+import MessageContextMenu from './MessageContextMenu';
 import MessageInput from './MessageInput';
 import { format } from 'date-fns';
 import type { Conversation, ConversationRead, Message } from '@/types';
-import { ChevronLeft, ChevronUp, ChevronDown, Info, Loader2, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronUp, ChevronDown, Info, Loader2, Pin, Search, X } from 'lucide-react';
 import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +34,9 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const [searchQuery, setSearchQuery] = useState('');
   const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
   const [reads, setReads] = useState<ConversationRead[]>(conversation?.reads || []);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: Message } | null>(null);
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
+  const [pinnedExpanded, setPinnedExpanded] = useState(false);
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
 
@@ -65,6 +69,53 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     });
     return off;
   }, [on, conversationId]);
+
+  // Fetch pinned messages เมื่อเปิด conversation
+  useEffect(() => {
+    if (!conversationId) return;
+    api.get<{ messages: Message[] }>(`/api/messages/pinned?conversationId=${conversationId}`)
+      .then((res) => setPinnedMessages(res.data.messages))
+      .catch(() => {});
+  }, [conversationId]);
+
+  // Real-time: อัปเดต pin state
+  useEffect(() => {
+    const off = on('message:updated', (msg) => {
+      if (msg.conversationId !== conversationId) return;
+      setPinnedMessages((prev) => {
+        if (msg.isPinned) {
+          const filtered = prev.filter((m) => m.id !== msg.id);
+          return [msg, ...filtered];
+        }
+        return prev.filter((m) => m.id !== msg.id);
+      });
+    });
+    return off;
+  }, [on, conversationId]);
+
+  const handlePin = async (message: Message) => {
+    try {
+      await api.patch(`/api/messages/${message.id}/pin`, { isPinned: !message.isPinned });
+    } catch {
+      // socket event จะ update UI อัตโนมัติ
+    }
+  };
+
+  const handleCopy = (message: Message) => {
+    if (message.contentType === 'TEXT') {
+      navigator.clipboard.writeText(message.content).catch(() => {});
+    }
+  };
+
+  const scrollToMessage = (messageId: string) => {
+    const el = scrollContainerRef.current?.querySelector(`[data-msg-id="${messageId}"]`) as HTMLElement | null;
+    if (!el || !scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const relativeTop = elRect.top - containerRect.top + container.scrollTop;
+    container.scrollTo({ top: relativeTop - container.clientHeight / 2, behavior: 'smooth' });
+  };
 
   const matchIds = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -225,6 +276,58 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
         </div>
       )}
 
+      {/* Pinned messages banner */}
+      {pinnedMessages.length > 0 && (
+        <div className="border-b border-amber-100 bg-amber-50">
+          {/* Header */}
+          <button
+            onClick={() => setPinnedExpanded((v) => !v)}
+            className="flex w-full items-center gap-2 px-4 py-2 text-left"
+          >
+            <Pin className="h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-amber-800">
+              {pinnedMessages.length === 1
+                ? pinnedMessages[0].content.slice(0, 60)
+                : `${pinnedMessages.length} ข้อความที่ปักหมุด`}
+            </span>
+            <span className="ml-auto flex-shrink-0 text-[10px] text-amber-500">
+              {pinnedExpanded ? '▲' : '▼'}
+            </span>
+          </button>
+
+          {/* Expanded list */}
+          {pinnedExpanded && (
+            <div className="divide-y divide-amber-100 border-t border-amber-100">
+              {pinnedMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-amber-100/60"
+                >
+                  <button
+                    onClick={() => { scrollToMessage(msg.id); setPinnedExpanded(false); }}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="truncate text-xs text-gray-700">{msg.content.slice(0, 80)}</p>
+                    <p className="mt-0.5 text-[10px] text-amber-600">
+                      {msg.admin?.name || 'Customer'} · {format(new Date(msg.pinnedAt || msg.sentAt), 'HH:mm')}
+                    </p>
+                  </button>
+                  {canModifyChat && (
+                    <button
+                      onClick={() => handlePin(msg)}
+                      className="flex-shrink-0 rounded-full p-1 text-amber-400 hover:bg-amber-200 hover:text-amber-700"
+                      title="เอาหมุดออก"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Messages */}
       <div
         ref={scrollContainerRef}
@@ -270,7 +373,8 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                     customerAvatarUrl={conversation?.contact?.avatarUrl}
                     customerPlatform={conversation?.platform}
                     canReply={canModifyChat}
-                    onReply={setReplyingTo}
+                    canPin={canModifyChat}
+                    onContextMenu={(e, m) => setContextMenu({ x: e.clientX, y: e.clientY, message: m })}
                     highlight={searchQuery.trim() || undefined}
                     isCurrentMatch={matchIdx !== -1 && matchIdx === currentMatchIdx}
                     isGrouped={isGrouped}
@@ -321,6 +425,21 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
         <div className="border-t border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">
           บทบาทนี้ดูแชตได้อย่างเดียว ระบบปิดการส่งข้อความไว้
         </div>
+      )}
+
+      {/* Context menu */}
+      {contextMenu && (
+        <MessageContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          message={contextMenu.message}
+          canReply={canModifyChat}
+          canPin={canModifyChat}
+          onReply={() => setReplyingTo(contextMenu.message)}
+          onPin={() => handlePin(contextMenu.message)}
+          onCopy={() => handleCopy(contextMenu.message)}
+          onClose={() => setContextMenu(null)}
+        />
       )}
     </div>
   );

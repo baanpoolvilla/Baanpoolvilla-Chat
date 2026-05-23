@@ -116,6 +116,8 @@ export interface Message {
   metadata?: Record<string, unknown>;
   platformMsgId?: string;
   isRead: boolean;
+  isPinned: boolean;
+  pinnedAt?: string | null;
   sentAt: string;
   admin?: Pick<Admin, 'id' | 'name' | 'avatar'>;
   replyToMessage?: MessageReplyPreview | null;
@@ -239,6 +241,7 @@ export interface ServerToClientEvents {
   'admin:typing': (data: { conversationId: string; adminId: string }) => void;
   'bot:typing': (data: { conversationId: string }) => void;
   'conversation:read': (data: { conversationId: string; admin: Pick<Admin, 'id' | 'name' | 'avatar'>; readAt: string }) => void;
+  'message:updated': (message: Message) => void;
   'error': (data: { message: string }) => void;
 }
 

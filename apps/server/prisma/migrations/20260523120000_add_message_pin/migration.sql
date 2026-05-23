@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Message" ADD COLUMN "isPinned" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Message" ADD COLUMN "pinnedAt" TIMESTAMP(3);

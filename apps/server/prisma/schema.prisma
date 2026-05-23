@@ -164,6 +164,8 @@ model Message {
   metadata       Json?
   platformMsgId  String?
   isRead         Boolean      @default(false)
+  isPinned       Boolean      @default(false)
+  pinnedAt       DateTime?
   sentAt         DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   admin          Admin?       @relation(fields: [adminId], references: [id])
