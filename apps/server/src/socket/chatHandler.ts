@@ -73,8 +73,15 @@ export function chatHandler(io: SocketIOServer, socket: Socket): void {
         return;
       }
 
-      await ConversationService.markRead(conversationId);
+      const reader = await ConversationService.markRead(conversationId, adminSocket.adminId);
       io.emit('conversation:updated', { id: conversationId, unreadCount: 0 });
+      if (reader) {
+        io.to(`conversation:${conversationId}`).emit('conversation:read', {
+          conversationId,
+          admin: reader,
+          readAt: new Date().toISOString(),
+        });
+      }
     } catch (error) {
       logger.error('Socket conversation:read error', { error });
     }

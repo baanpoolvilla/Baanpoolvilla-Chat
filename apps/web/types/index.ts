@@ -101,6 +101,7 @@ export interface Conversation {
   assignments?: ConversationAssignment[];
   messages?: Message[];
   notes?: ConversationNote[];
+  reads?: ConversationRead[];
 }
 
 export interface Message {
@@ -171,6 +172,11 @@ export interface ConversationNote {
   createdAt: string;
 }
 
+export interface ConversationRead {
+  readAt: string;
+  admin: Pick<Admin, 'id' | 'name' | 'avatar'>;
+}
+
 export interface QuickReply {
   id: string;
   title: string;
@@ -232,6 +238,7 @@ export interface ServerToClientEvents {
   'admin:notify': (data: { conversationId: string; contactName: string; message: string; platform: Platform }) => void;
   'admin:typing': (data: { conversationId: string; adminId: string }) => void;
   'bot:typing': (data: { conversationId: string }) => void;
+  'conversation:read': (data: { conversationId: string; admin: Pick<Admin, 'id' | 'name' | 'avatar'>; readAt: string }) => void;
   'error': (data: { message: string }) => void;
 }
 

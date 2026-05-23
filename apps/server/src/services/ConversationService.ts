@@ -81,6 +81,14 @@ export const conversationSummarySelect = Prisma.validator<Prisma.ConversationSel
       createdAt: true,
     },
   },
+  reads: {
+    orderBy: { readAt: 'desc' },
+    take: 5,
+    select: {
+      readAt: true,
+      admin: { select: { id: true, name: true, avatar: true } },
+    },
+  },
 });
 
 export class ConversationService {
@@ -168,6 +176,14 @@ export class ConversationService {
         notes: {
           orderBy: { createdAt: 'desc' },
         },
+        reads: {
+          orderBy: { readAt: 'desc' },
+          take: 5,
+          select: {
+            readAt: true,
+            admin: { select: { id: true, name: true, avatar: true } },
+          },
+        },
       },
     });
   }
@@ -201,7 +217,7 @@ export class ConversationService {
     return conversation;
   }
 
-  static async markRead(id: string) {
+  static async markRead(id: string, adminId: string) {
     await prisma.$transaction([
       prisma.conversation.update({
         where: { id },
@@ -211,7 +227,17 @@ export class ConversationService {
         where: { conversationId: id, isRead: false },
         data: { isRead: true },
       }),
+      prisma.conversationRead.upsert({
+        where: { conversationId_adminId: { conversationId: id, adminId } },
+        create: { conversationId: id, adminId },
+        update: { readAt: new Date() },
+      }),
     ]);
+
+    return prisma.admin.findUnique({
+      where: { id: adminId },
+      select: { id: true, name: true, avatar: true },
+    });
   }
 
   static async assign(conversationId: string, adminId: string) {

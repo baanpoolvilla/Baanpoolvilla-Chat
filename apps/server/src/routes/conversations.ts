@@ -103,8 +103,17 @@ router.patch('/:id/bot', requireChatWriteAccess, async (req: AuthRequest, res: R
 
 router.post('/:id/read', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await ConversationService.markRead(req.params.id);
-    getSocketIO().emit('conversation:updated', { id: req.params.id, unreadCount: 0 });
+    const adminId = req.admin!.id;
+    const reader = await ConversationService.markRead(req.params.id, adminId);
+    const io = getSocketIO();
+    io.emit('conversation:updated', { id: req.params.id, unreadCount: 0 });
+    if (reader) {
+      io.to(`conversation:${req.params.id}`).emit('conversation:read', {
+        conversationId: req.params.id,
+        admin: reader,
+        readAt: new Date().toISOString(),
+      });
+    }
     res.json({ message: 'Marked as read' });
   } catch (error) {
     logger.error('Mark read error', { error });

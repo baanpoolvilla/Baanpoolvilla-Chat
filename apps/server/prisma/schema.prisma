@@ -19,6 +19,7 @@ model Admin {
   createdAt    DateTime                 @default(now())
   messages     Message[]
   assignments  ConversationAssignment[]
+  reads        ConversationRead[]
 }
 
 enum AdminRole {
@@ -117,6 +118,7 @@ model Conversation {
   tags        ConversationTag[]
   assignments ConversationAssignment[]
   notes       ConversationNote[]
+  reads       ConversationRead[]
 
   @@index([lastMsgAt], map: "Conversation_lastMsgAt_idx")
   @@index([status, lastMsgAt], map: "Conversation_status_lastMsgAt_idx")
@@ -265,6 +267,17 @@ model ConversationNote {
   conversation   Conversation @relation(fields: [conversationId], references: [id])
 
   @@index([conversationId, createdAt], map: "ConversationNote_conversationId_createdAt_idx")
+}
+
+model ConversationRead {
+  conversationId String
+  adminId        String
+  readAt         DateTime     @default(now()) @updatedAt
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  admin          Admin        @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, adminId])
+  @@index([conversationId])
 }
 
 model QuickReply {

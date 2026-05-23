@@ -2,9 +2,10 @@
 
 import { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { useMessages } from '@/hooks/useMessages';
+import { useSocket } from '@/hooks/useSocket';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
-import type { Conversation, Message } from '@/types';
+import type { Conversation, ConversationRead, Message } from '@/types';
 import { ChevronLeft, ChevronUp, ChevronDown, Info, Loader2, Search, X } from 'lucide-react';
 import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
@@ -22,6 +23,7 @@ interface ChatWindowProps {
 
 export default function ChatWindow({ conversationId, conversation, isConversationLoading = false, onToggleInfo, contactNameOverride, onCloseChat }: ChatWindowProps) {
   const { messages, isLoading, hasMore, loadMore, sendMessage } = useMessages(conversationId);
+  const { on } = useSocket();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldJumpToBottomRef = useRef(true);
@@ -29,6 +31,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
+  const [reads, setReads] = useState<ConversationRead[]>(conversation?.reads || []);
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
 
@@ -47,7 +50,20 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     setSearchOpen(false);
     setSearchQuery('');
     setCurrentMatchIdx(0);
-  }, [conversationId]);
+    setReads(conversation?.reads || []);
+  }, [conversationId, conversation?.reads]);
+
+  // Real-time: อัปเดตรายการผู้อ่านเมื่อ admin อื่น join ห้องเดียวกัน
+  useEffect(() => {
+    const off = on('conversation:read', (data) => {
+      if (data.conversationId !== conversationId) return;
+      setReads((prev) => {
+        const filtered = prev.filter((r) => r.admin.id !== data.admin.id);
+        return [{ admin: data.admin, readAt: data.readAt }, ...filtered].slice(0, 5);
+      });
+    });
+    return off;
+  }, [on, conversationId]);
 
   const matchIds = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -219,17 +235,32 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="pb-1">
             {hasMore && (
               <button
                 onClick={loadMore}
-                className="mx-auto block rounded-full bg-white/80 px-3 py-1 text-xs text-gray-500 shadow-sm hover:text-gray-700"
+                className="mx-auto mb-3 block rounded-full bg-white/80 px-3 py-1 text-xs text-gray-500 shadow-sm hover:text-gray-700"
               >
                 Load older messages
               </button>
             )}
-            {messages.map((msg) => {
+            {messages.map((msg, idx) => {
               const matchIdx = matchIds.indexOf(msg.id);
+              const prev = messages[idx - 1];
+              const next = messages[idx + 1];
+              // Group ถ้าข้อความก่อนหน้าเป็นคนเดียวกัน และห่างกันไม่เกิน 5 นาที
+              const isGrouped = !!(
+                prev &&
+                prev.senderType === msg.senderType &&
+                prev.adminId === msg.adminId &&
+                new Date(msg.sentAt).getTime() - new Date(prev.sentAt).getTime() < 5 * 60 * 1000
+              );
+              const isLastInGroup = !(
+                next &&
+                next.senderType === msg.senderType &&
+                next.adminId === msg.adminId &&
+                new Date(next.sentAt).getTime() - new Date(msg.sentAt).getTime() < 5 * 60 * 1000
+              );
               return (
                 <div key={msg.id} data-msg-id={msg.id}>
                   <MessageBubble
@@ -241,10 +272,36 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                     onReply={setReplyingTo}
                     highlight={searchQuery.trim() || undefined}
                     isCurrentMatch={matchIdx !== -1 && matchIdx === currentMatchIdx}
+                    isGrouped={isGrouped}
+                    isLastInGroup={isLastInGroup}
                   />
                 </div>
               );
             })}
+
+            {/* Read by indicator */}
+            {reads.length > 0 && (
+              <div className="flex items-center justify-end gap-1.5 px-1 pt-2">
+                <span className="text-[10px] text-gray-400">อ่านแล้วโดย</span>
+                {reads.slice(0, 4).map((r) => (
+                  <div
+                    key={r.admin.id}
+                    title={r.admin.name}
+                    className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-brand-200 text-[9px] font-medium text-brand-700 overflow-hidden"
+                  >
+                    {r.admin.avatar ? (
+                      <img src={r.admin.avatar} alt={r.admin.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                    ) : (
+                      r.admin.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                ))}
+                {reads.length > 4 && (
+                  <span className="text-[10px] text-gray-400">+{reads.length - 4}</span>
+                )}
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         )}
