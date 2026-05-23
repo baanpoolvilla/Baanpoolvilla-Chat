@@ -54,6 +54,7 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
             key={tag.id}
             name={tag.name}
             color={tag.color}
+            description={tag.description}
             onRemove={() => onRemove(tag.id)}
           />
         ))}

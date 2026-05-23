@@ -89,6 +89,7 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
 const tagSchema = z.object({
   name: z.string().min(1).max(50),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#6366f1'),
+  description: z.string().max(300).optional().nullable(),
   categoryId: z.string().cuid().nullish(),
 });
 
@@ -99,6 +100,7 @@ router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response)
       data: {
         name: data.name,
         color: data.color,
+        description: data.description ?? undefined,
         categoryId: data.categoryId ?? undefined,
       },
       include: { category: true },
@@ -122,6 +124,7 @@ router.put('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Respons
       data: {
         name: data.name,
         color: data.color,
+        description: data.description ?? null,
         categoryId: data.categoryId ?? undefined,
       },
       include: { category: true },

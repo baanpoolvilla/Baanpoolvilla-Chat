@@ -84,7 +84,7 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
         {tags && tags.length > 0 && (
           <div className="mt-1.5 hidden items-center gap-1 flex-wrap sm:flex">
             {tags.slice(0, 2).map((ct) => (
-              <TagBadge key={ct.tagId} name={ct.tag.name} color={ct.tag.color} size="sm" />
+              <TagBadge key={ct.tagId} name={ct.tag.name} color={ct.tag.color} size="sm" description={ct.tag.description} />
             ))}
             {tags.length > 2 && (
               <span className="text-[10px] text-gray-400">+{tags.length - 2}</span>
