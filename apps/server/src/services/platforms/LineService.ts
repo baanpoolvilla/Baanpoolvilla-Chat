@@ -33,7 +33,7 @@ export class LineService {
     contentType: ContentType | string,
     mediaUrl?: string,
     quoteToken?: string
-  ): Promise<{ quoteToken?: string }> {
+  ): Promise<{ quoteToken?: string; messageId?: string }> {
     const accessToken = await LineService.getAccessToken();
     if (!accessToken) {
       logger.warn('LINE_ACCESS_TOKEN not configured, skipping send');
@@ -109,12 +109,12 @@ export class LineService {
         }
       );
 
-      const sentQuoteToken = (
+      const sentMessage = (
         response.data as { sentMessages?: Array<{ id: string; quoteToken?: string }> }
-      )?.sentMessages?.[0]?.quoteToken;
+      )?.sentMessages?.[0];
 
       logger.debug('LINE message sent', { recipientId });
-      return { quoteToken: sentQuoteToken };
+      return { quoteToken: sentMessage?.quoteToken, messageId: sentMessage?.id };
     } catch (error) {
       logger.error('LINE sendMessage failed', { error, recipientId });
       throw error;

@@ -387,12 +387,19 @@ export class MessageService {
               lineQuoteToken,
             );
 
-            // Save the quoteToken from LINE's response so this message can be natively quoted later
-            if (lineResult.quoteToken) {
+            // Save the quoteToken and LINE message ID so this message can be natively quoted later
+            // and so inbound customer replies can be linked via quotedMessageId
+            if (lineResult.quoteToken || lineResult.messageId) {
               const existingMeta = (message.metadata as Record<string, unknown>) ?? {};
               await prisma.message.update({
                 where: { id: message.id },
-                data: { metadata: { ...existingMeta, quoteToken: lineResult.quoteToken } },
+                data: {
+                  platformMsgId: lineResult.messageId ?? undefined,
+                  metadata: {
+                    ...existingMeta,
+                    ...(lineResult.quoteToken && { quoteToken: lineResult.quoteToken }),
+                  },
+                },
               });
             }
             break;
