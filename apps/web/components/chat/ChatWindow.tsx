@@ -5,6 +5,7 @@ import { useMessages } from '@/hooks/useMessages';
 import { useSocket } from '@/hooks/useSocket';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
+import { format } from 'date-fns';
 import type { Conversation, ConversationRead, Message } from '@/types';
 import { ChevronLeft, ChevronUp, ChevronDown, Info, Loader2, Search, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -281,24 +282,24 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
             {/* Read by indicator */}
             {reads.length > 0 && (
-              <div className="flex items-center justify-end gap-1.5 px-1 pt-2">
-                <span className="text-[10px] text-gray-400">อ่านแล้วโดย</span>
-                {reads.slice(0, 4).map((r) => (
-                  <div
-                    key={r.admin.id}
-                    title={r.admin.name}
-                    className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-brand-200 text-[9px] font-medium text-brand-700 overflow-hidden"
-                  >
-                    {r.admin.avatar ? (
-                      <img src={r.admin.avatar} alt={r.admin.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-                    ) : (
-                      r.admin.name.charAt(0).toUpperCase()
-                    )}
+              <div className="flex flex-col items-end gap-1 px-1 pt-2">
+                {reads.slice(0, 5).map((r) => (
+                  <div key={r.admin.id} className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-gray-400">
+                      อ่านแล้ว ·{' '}
+                      <span className="text-gray-500 font-medium">{r.admin.name}</span>
+                      {' · '}
+                      {format(new Date(r.readAt), 'HH:mm')}
+                    </span>
+                    <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 text-[8px] font-medium text-brand-700 overflow-hidden">
+                      {r.admin.avatar ? (
+                        <img src={r.admin.avatar} alt={r.admin.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                      ) : (
+                        r.admin.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
                   </div>
                 ))}
-                {reads.length > 4 && (
-                  <span className="text-[10px] text-gray-400">+{reads.length - 4}</span>
-                )}
               </div>
             )}
 
