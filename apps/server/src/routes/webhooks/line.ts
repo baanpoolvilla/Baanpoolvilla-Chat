@@ -99,7 +99,11 @@ router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: 
         content,
         contentType,
         mediaUrl,
-        metadata: { quoteToken: (event.message.quoteToken as string | undefined) ?? null, event },
+        metadata: {
+          quoteToken: (event.message.quoteToken as string | undefined) ?? null,
+          quotedMessageId: (event.message.quotedMessageId as string | undefined) ?? null,
+          event,
+        },
       };
 
       await MessageService.ingest(incoming);

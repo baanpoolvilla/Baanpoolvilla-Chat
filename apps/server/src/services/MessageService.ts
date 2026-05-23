@@ -211,6 +211,17 @@ export class MessageService {
           });
         }
 
+        // Resolve replyToMessageId from quotedMessageId in metadata (e.g. LINE native reply)
+        let replyToMessageId: string | undefined;
+        const quotedPlatformMsgId = incoming.metadata?.quotedMessageId as string | null | undefined;
+        if (quotedPlatformMsgId) {
+          const quoted = await tx.message.findFirst({
+            where: { platformMsgId: quotedPlatformMsgId },
+            select: { id: true },
+          });
+          if (quoted) replyToMessageId = quoted.id;
+        }
+
         const message = await tx.message.create({
           data: {
             conversationId: conversation.id,
@@ -220,6 +231,7 @@ export class MessageService {
             mediaUrl: incoming.mediaUrl,
             metadata: incoming.metadata as Prisma.InputJsonValue | undefined,
             platformMsgId: incoming.platformMsgId,
+            ...(replyToMessageId && { replyToMessageId }),
           },
           select: messageWithReplySelect,
         });
