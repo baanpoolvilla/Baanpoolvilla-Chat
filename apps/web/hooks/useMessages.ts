@@ -126,6 +126,7 @@ export function useMessages(conversationId: string | null) {
       metadata: { clientRequestId },
       senderType: 'ADMIN',
       isRead: true,
+      isPinned: false,
       sentAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, tempMessage]);
