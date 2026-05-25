@@ -131,6 +131,8 @@ export class BroadcastService {
     if (existing.status === BroadcastStatus.SENDING) {
       throw new Error('Cannot delete a broadcast that is currently sending');
     }
+    // Delete related logs first (no cascade defined on schema)
+    await prisma.broadcastLog.deleteMany({ where: { broadcastId: id } });
     return prisma.broadcast.delete({ where: { id } });
   }
 

@@ -30,6 +30,7 @@ export default function BroadcastPage() {
   const [editTarget, setEditTarget] = useState<Broadcast | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Broadcast | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const loadBroadcasts = () => {
     setLoading(true);
@@ -54,12 +55,13 @@ export default function BroadcastPage() {
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
+    setDeleteError('');
     try {
       await api.delete(`/api/broadcasts/${deleteTarget.id}`);
       setBroadcasts((prev) => prev.filter((b) => b.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch {
-      // ignore
+      setDeleteError('ลบไม่สำเร็จ กรุณาลองใหม่');
     } finally {
       setDeleting(false);
     }
@@ -137,10 +139,13 @@ export default function BroadcastPage() {
             <p className="text-sm text-gray-600 mb-1">
               คุณต้องการลบ <span className="font-medium text-gray-900">{deleteTarget.name}</span> ใช่หรือไม่?
             </p>
-            <p className="text-xs text-gray-400 mb-5">การดำเนินการนี้ไม่สามารถยกเลิกได้</p>
+            <p className="text-xs text-gray-400 mb-2">การดำเนินการนี้ไม่สามารถยกเลิกได้</p>
+            {deleteError && (
+              <p className="text-xs text-red-600 mb-3">{deleteError}</p>
+            )}
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => { setDeleteTarget(null); setDeleteError(''); }}
                 disabled={deleting}
                 className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 disabled:opacity-50"
               >
