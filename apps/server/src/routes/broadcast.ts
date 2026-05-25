@@ -98,4 +98,56 @@ router.post('/:id/send', requireChatWriteAccess, async (req: AuthRequest, res: R
   }
 });
 
+const updateBroadcastSchema = z.object({
+  name: z.string().min(1).optional(),
+  content: z.string().min(1).optional(),
+  contentType: z.enum(['TEXT', 'IMAGE', 'VIDEO', 'AUDIO', 'FILE', 'STICKER', 'LOCATION', 'TEMPLATE']).optional(),
+  mediaUrl: z.string().url().nullable().optional(),
+  platforms: z.array(z.enum(['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'MANUAL'])).min(1).optional(),
+  targetType: z.enum(['ALL', 'BY_TAG', 'BY_PLATFORM', 'CUSTOM']).optional(),
+  tagFilter: z.array(z.string()).optional(),
+  scheduledAt: z.string().datetime().nullable().optional(),
+});
+
+router.put('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = updateBroadcastSchema.parse(req.body);
+    const broadcast = await BroadcastService.update(req.params.id, {
+      ...data,
+      mediaUrl: data.mediaUrl ?? undefined,
+      scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : data.scheduledAt === null ? undefined : undefined,
+    });
+    res.json(broadcast);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    if (error instanceof Error && error.message.includes('Cannot edit')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    logger.error('Update broadcast error', { error });
+    res.status(500).json({ error: 'Failed to update broadcast' });
+  }
+});
+
+router.delete('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    await BroadcastService.deleteById(req.params.id);
+    res.status(204).send();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Cannot delete')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    if (error instanceof Error && error.message === 'Broadcast not found') {
+      res.status(404).json({ error: 'Broadcast not found' });
+      return;
+    }
+    logger.error('Delete broadcast error', { error });
+    res.status(500).json({ error: 'Failed to delete broadcast' });
+  }
+});
+
 export default router;

@@ -8,19 +8,34 @@ import axios from 'axios';
 
 const ALL_PLATFORMS = ['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK'];
 
-interface BroadcastComposerProps {
-  onDone?: () => void;
+interface BroadcastInitialData {
+  name: string;
+  content: string;
+  mediaUrl?: string | null;
+  targetType: 'ALL' | 'BY_TAG' | 'BY_PLATFORM';
+  tagFilter?: string[];
+  platforms?: string[];
+  scheduledAt?: string | null;
 }
 
-export default function BroadcastComposer({ onDone }: BroadcastComposerProps) {
+interface BroadcastComposerProps {
+  onDone?: () => void;
+  broadcastId?: string;
+  initialData?: BroadcastInitialData;
+}
+
+export default function BroadcastComposer({ onDone, broadcastId, initialData }: BroadcastComposerProps) {
+  const isEditMode = Boolean(broadcastId);
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [message, setMessage] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [target, setTarget] = useState<'ALL' | 'BY_TAG' | 'BY_PLATFORM'>('ALL');
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(ALL_PLATFORMS);
-  const [scheduledAt, setScheduledAt] = useState('');
+  const [name, setName] = useState(initialData?.name ?? '');
+  const [message, setMessage] = useState(initialData?.content ?? '');
+  const [imageUrl, setImageUrl] = useState(initialData?.mediaUrl ?? '');
+  const [target, setTarget] = useState<'ALL' | 'BY_TAG' | 'BY_PLATFORM'>(initialData?.targetType ?? 'ALL');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialData?.tagFilter ?? []);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(initialData?.platforms ?? ALL_PLATFORMS);
+  const [scheduledAt, setScheduledAt] = useState(
+    initialData?.scheduledAt ? new Date(initialData.scheduledAt).toISOString().slice(0, 16) : ''
+  );
   const [sending, setSending] = useState(false);
   const [estimatedCount, setEstimatedCount] = useState<number | undefined>();
   const [error, setError] = useState('');
@@ -113,11 +128,17 @@ export default function BroadcastComposer({ onDone }: BroadcastComposerProps) {
         payload.scheduledAt = new Date(scheduledAt).toISOString();
       }
 
-      const res = await api.post('/api/broadcasts', payload);
-      const broadcastId = res.data?.id || res.data?.data?.id;
+      let broadcastIdToSend: string;
+      if (isEditMode && broadcastId) {
+        await api.put(`/api/broadcasts/${broadcastId}`, payload);
+        broadcastIdToSend = broadcastId;
+      } else {
+        const res = await api.post('/api/broadcasts', payload);
+        broadcastIdToSend = res.data?.id || res.data?.data?.id;
+      }
 
-      if (sendNow && broadcastId) {
-        await api.post(`/api/broadcasts/${broadcastId}/send`);
+      if (sendNow && broadcastIdToSend && !isEditMode) {
+        await api.post(`/api/broadcasts/${broadcastIdToSend}/send`);
       }
 
       if (onDone) {
@@ -140,9 +161,9 @@ export default function BroadcastComposer({ onDone }: BroadcastComposerProps) {
     <div className="max-w-3xl mx-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">สร้างการส่งข้อความ</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{isEditMode ? 'แก้ไขการส่งข้อความ' : 'สร้างการส่งข้อความ'}</h2>
           <p className="text-sm text-gray-500 mt-1">
-            สร้างแคมเปญเพื่อส่งข้อความถึงผู้ติดต่อ
+            {isEditMode ? 'แก้ไขแคมเปญ (สามารถแก้ได้เฉพาะแบบร่างและที่ตั้งเวลาไว้)' : 'สร้างแคมเปญเพื่อส่งข้อความถึงผู้ติดต่อ'}
           </p>
         </div>
 
@@ -261,7 +282,16 @@ export default function BroadcastComposer({ onDone }: BroadcastComposerProps) {
             ยกเลิก
           </button>
           <div className="flex gap-3">
-            {scheduledAt ? (
+            {isEditMode ? (
+              <button
+                type="button"
+                onClick={() => handleSubmit(false)}
+                disabled={sending}
+                className="px-6 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {sending ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+              </button>
+            ) : scheduledAt ? (
               <button
                 type="button"
                 onClick={() => handleSubmit(false)}

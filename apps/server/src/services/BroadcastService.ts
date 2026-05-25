@@ -95,6 +95,45 @@ export class BroadcastService {
     });
   }
 
+  static async update(id: string, params: Partial<CreateBroadcastParams>) {
+    const existing = await prisma.broadcast.findUnique({ where: { id } });
+    if (!existing) throw new Error('Broadcast not found');
+    if (existing.status !== BroadcastStatus.DRAFT && existing.status !== BroadcastStatus.SCHEDULED) {
+      throw new Error('Cannot edit a broadcast that has already been sent or is currently sending');
+    }
+
+    const newStatus = params.scheduledAt
+      ? BroadcastStatus.SCHEDULED
+      : params.scheduledAt === null
+        ? BroadcastStatus.DRAFT
+        : existing.status;
+
+    return prisma.broadcast.update({
+      where: { id },
+      data: {
+        ...(params.name !== undefined && { name: params.name }),
+        ...(params.content !== undefined && { content: params.content }),
+        ...(params.contentType !== undefined && { contentType: params.contentType }),
+        ...(params.mediaUrl !== undefined && { mediaUrl: params.mediaUrl || null }),
+        ...(params.platforms !== undefined && { platforms: params.platforms }),
+        ...(params.targetType !== undefined && { targetType: params.targetType }),
+        ...(params.tagFilter !== undefined && {
+          tagFilter: params.tagFilter.length > 0 ? { tagIds: params.tagFilter } : null,
+        }),
+        ...('scheduledAt' in params && { scheduledAt: params.scheduledAt ?? null, status: newStatus }),
+      },
+    });
+  }
+
+  static async deleteById(id: string) {
+    const existing = await prisma.broadcast.findUnique({ where: { id } });
+    if (!existing) throw new Error('Broadcast not found');
+    if (existing.status === BroadcastStatus.SENDING) {
+      throw new Error('Cannot delete a broadcast that is currently sending');
+    }
+    return prisma.broadcast.delete({ where: { id } });
+  }
+
   static async getTargetContacts(broadcast: {
     targetType: BroadcastTarget;
     platforms: Platform[];
