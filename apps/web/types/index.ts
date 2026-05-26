@@ -20,6 +20,13 @@ export interface Admin {
   createdAt: string;
 }
 
+export interface ContactLatestConversation {
+  id: string;
+  lastMsgAt?: string;
+  platform: Platform;
+  status: ConversationStatus;
+}
+
 export interface Contact {
   id: string;
   displayName: string;
@@ -34,6 +41,7 @@ export interface Contact {
   platformLinks?: PlatformContact[];
   tags?: ContactTagJoin[];
   _count?: { conversations: number };
+  conversations?: ContactLatestConversation[];
 }
 
 export interface PlatformContact {

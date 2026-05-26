@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   MessageSquare,
+  Users,
   Send,
   Tag,
   Shield,
@@ -19,6 +20,7 @@ import { isChatViewerRole } from '@/lib/permissions';
 const navItems = [
   { href: '/dashboard', label: 'แดชบอร์ด', icon: LayoutDashboard },
   { href: '/conversations', label: 'สนทนา', icon: MessageSquare },
+  { href: '/contacts', label: 'รายชื่อติดต่อ', icon: Users },
   { href: '/broadcast', label: 'ประกาศ', icon: Send },
   { href: '/tags', label: 'แท็ก', icon: Tag },
 ];

@@ -29,6 +29,11 @@ router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
           platformLinks: true,
           tags: { include: { tag: true } },
           _count: { select: { conversations: true } },
+          conversations: {
+            orderBy: { lastMsgAt: 'desc' },
+            take: 1,
+            select: { id: true, lastMsgAt: true, platform: true, status: true },
+          },
         },
         orderBy: { updatedAt: 'desc' },
         skip,
