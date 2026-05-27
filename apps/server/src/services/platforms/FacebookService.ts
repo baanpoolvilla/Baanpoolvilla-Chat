@@ -22,6 +22,13 @@ export class FacebookService {
 
       switch (contentType) {
         case 'IMAGE':
+          if (content && content !== '[Image]') {
+            await axios.post(
+              FacebookService.API_URL,
+              { recipient: { id: recipientId }, message: { text: content }, messaging_type: 'RESPONSE' },
+              { params: { access_token: accessToken }, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
           messagePayload = {
             attachment: {
               type: 'image',
@@ -30,6 +37,13 @@ export class FacebookService {
           };
           break;
         case 'VIDEO':
+          if (content && content !== '[Video]') {
+            await axios.post(
+              FacebookService.API_URL,
+              { recipient: { id: recipientId }, message: { text: content }, messaging_type: 'RESPONSE' },
+              { params: { access_token: accessToken }, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
           messagePayload = {
             attachment: {
               type: 'video',

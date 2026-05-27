@@ -41,65 +41,70 @@ export class LineService {
     }
 
     try {
-      let message: Record<string, unknown>;
+      const messages: Record<string, unknown>[] = [];
 
       switch (contentType) {
-        case 'IMAGE':
-          message = {
+        case 'IMAGE': {
+          // Send text caption first if provided alongside the image
+          if (content && content !== '[Image]') {
+            messages.push({ type: 'text', text: content });
+          }
+          messages.push({
             type: 'image',
             originalContentUrl: mediaUrl,
             previewImageUrl: mediaUrl,
-          };
+          });
           break;
-        case 'VIDEO':
-          message = {
+        }
+        case 'VIDEO': {
+          // Send text caption first if provided alongside the video
+          if (content && content !== '[Video]') {
+            messages.push({ type: 'text', text: content });
+          }
+          messages.push({
             type: 'video',
             originalContentUrl: mediaUrl,
             previewImageUrl: LineService.DEFAULT_VIDEO_PREVIEW_URL,
-          };
+          });
           break;
-        case 'STICKER':
-          {
-            const match = content.match(/\[Sticker:\s*(\d+)\/(\d+)\]/);
-            let packageId = match?.[1] || '1';
-            let stickerId = match?.[2] || '1';
-            if (!LineService.SUPPORTED_STICKERS.has(`${packageId}/${stickerId}`)) {
-              logger.warn('Unsupported LINE OA sticker requested, fallback to default', { packageId, stickerId });
-              packageId = '1';
-              stickerId = '1';
-            }
-          message = {
-            type: 'sticker',
-            packageId,
-            stickerId,
-          };
+        }
+        case 'STICKER': {
+          const match = content.match(/\[Sticker:\s*(\d+)\/(\d+)\]/);
+          let packageId = match?.[1] || '1';
+          let stickerId = match?.[2] || '1';
+          if (!LineService.SUPPORTED_STICKERS.has(`${packageId}/${stickerId}`)) {
+            logger.warn('Unsupported LINE OA sticker requested, fallback to default', { packageId, stickerId });
+            packageId = '1';
+            stickerId = '1';
           }
+          const stickerMsg: Record<string, unknown> = { type: 'sticker', packageId, stickerId };
+          if (quoteToken) stickerMsg.quoteToken = quoteToken;
+          messages.push(stickerMsg);
           break;
+        }
         case 'LOCATION': {
           const loc = JSON.parse(content);
-          message = {
+          messages.push({
             type: 'location',
             title: loc.title || 'Location',
             address: loc.address || '',
             latitude: loc.latitude,
             longitude: loc.longitude,
-          };
+          });
           break;
         }
-        default:
-          message = { type: 'text', text: content };
-      }
-
-      // Add quoteToken for native LINE Quote Reply (only Text and Sticker support quoteToken)
-      if (quoteToken && (contentType === 'TEXT' || contentType === 'STICKER')) {
-        message.quoteToken = quoteToken;
+        default: {
+          const textMsg: Record<string, unknown> = { type: 'text', text: content };
+          if (quoteToken) textMsg.quoteToken = quoteToken;
+          messages.push(textMsg);
+        }
       }
 
       const response = await axios.post(
         `${LineService.API_URL}/push`,
         {
           to: recipientId,
-          messages: [message],
+          messages,
         },
         {
           headers: {
@@ -109,12 +114,14 @@ export class LineService {
         }
       );
 
-      const sentMessage = (
+      const sentMessages = (
         response.data as { sentMessages?: Array<{ id: string; quoteToken?: string }> }
-      )?.sentMessages?.[0];
+      )?.sentMessages;
+      // Return quoteToken/messageId from the last sent message (the main media content)
+      const lastSent = sentMessages?.[sentMessages.length - 1];
 
       logger.debug('LINE message sent', { recipientId });
-      return { quoteToken: sentMessage?.quoteToken, messageId: sentMessage?.id };
+      return { quoteToken: lastSent?.quoteToken, messageId: lastSent?.id };
     } catch (error) {
       logger.error('LINE sendMessage failed', { error, recipientId });
       throw error;

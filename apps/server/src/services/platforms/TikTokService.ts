@@ -22,6 +22,13 @@ export class TikTokService {
 
       switch (contentType) {
         case 'IMAGE':
+          if (content && content !== '[Image]') {
+            await axios.post(
+              TikTokService.API_URL,
+              { recipient: { id: recipientId }, message: { type: 'text', text: { content } } },
+              { headers: { 'Access-Token': accessToken, 'Content-Type': 'application/json' } }
+            );
+          }
           messagePayload = {
             type: 'image',
             image: { url: mediaUrl },

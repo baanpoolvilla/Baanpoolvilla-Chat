@@ -22,6 +22,13 @@ export class InstagramService {
 
       switch (contentType) {
         case 'IMAGE':
+          if (content && content !== '[Image]') {
+            await axios.post(
+              InstagramService.API_URL,
+              { recipient: { id: recipientId }, message: { text: content } },
+              { params: { access_token: accessToken }, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
           messagePayload = {
             attachment: {
               type: 'image',
