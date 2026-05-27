@@ -211,16 +211,22 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
     }
   };
 
-  const handleSelectQuickReply = async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || disabled) return;
-    try {
-      await onSend(trimmed.slice(0, maxChars), undefined, undefined, replyingTo?.id);
-      setShowQuickReplies(false);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Send failed';
-      setSendError(`ส่งข้อความไม่สำเร็จ: ${msg}`);
-    }
+  const handleSelectQuickReply = (text: string) => {
+    const nextContent = text.slice(0, maxChars);
+    if (!nextContent.trim() || disabled) return;
+
+    setSendError(null);
+    setContent(nextContent);
+    setShowQuickReplies(false);
+
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.focus();
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+      const cursorPosition = textareaRef.current.value.length;
+      textareaRef.current.setSelectionRange(cursorPosition, cursorPosition);
+    });
   };
 
   const handleAttachmentPick = () => {

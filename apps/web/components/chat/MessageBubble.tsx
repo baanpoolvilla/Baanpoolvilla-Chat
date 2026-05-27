@@ -1,12 +1,13 @@
 'use client';
 
-import { memo, useState, useRef, useCallback } from 'react';
+import { memo, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, Platform } from '@/types';
 import { format } from 'date-fns';
-import { Bot, Download, Pin, X } from 'lucide-react';
+import { Bot, Download, ExternalLink, Globe, Pin, X } from 'lucide-react';
 import PlatformBadge from '@/components/common/PlatformBadge';
 import { getReplyPreviewText, getReplySenderLabel } from '@/lib/messageReply';
+import { createFallbackLinkPreview, extractUrls, normalizeUrl, type LinkPreviewData } from '@/lib/linkPreview';
 
 interface MessageBubbleProps {
   message: Message;
@@ -24,6 +25,10 @@ interface MessageBubbleProps {
   isLastInGroup?: boolean;
 }
 
+type MessageTone = 'customer' | 'admin' | 'bot';
+
+const linkPreviewCache = new Map<string, LinkPreviewData>();
+
 function highlightText(text: string, query: string) {
   if (!query) return <>{text}</>;
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -38,6 +43,218 @@ function highlightText(text: string, query: string) {
         )
       )}
     </>
+  );
+}
+
+function getLinkClassName(tone: MessageTone) {
+  switch (tone) {
+    case 'customer':
+      return 'cursor-pointer break-all font-medium text-blue-600 underline decoration-blue-500/70 underline-offset-2 hover:text-blue-700';
+    case 'bot':
+      return 'cursor-pointer break-all font-medium text-purple-700 underline decoration-purple-500/70 underline-offset-2 hover:text-purple-800';
+    default:
+      return 'cursor-pointer break-all font-medium text-white underline decoration-white/80 underline-offset-2 hover:opacity-90';
+  }
+}
+
+function renderTextWithLinks(text: string, query?: string, tone: MessageTone = 'customer') {
+  const parts = text.split(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi);
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (!part) return null;
+
+        if (part.match(/^(https?:\/\/|www\.)/i)) {
+          const href = normalizeUrl(part);
+          return (
+            <a
+              key={`${part}-${index}`}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={getLinkClassName(tone)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+              onContextMenu={(e) => e.stopPropagation()}
+              draggable={false}
+            >
+              {query ? highlightText(part, query) : part}
+            </a>
+          );
+        }
+
+        return <span key={`${part}-${index}`}>{query ? highlightText(part, query) : part}</span>;
+      })}
+    </>
+  );
+}
+
+function LinkPreviewCard({ preview, tone }: { preview: LinkPreviewData; tone: MessageTone }) {
+  const isCustomer = tone === 'customer';
+  const isBot = tone === 'bot';
+
+  return (
+    <a
+      href={preview.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        'block overflow-hidden rounded-xl border transition-colors',
+        isCustomer && 'border-gray-200 bg-gray-50 hover:border-blue-200 hover:bg-white',
+        isBot && 'border-purple-200 bg-purple-50/80 hover:bg-purple-50',
+        tone === 'admin' && 'border-white/25 bg-white/10 hover:bg-white/15'
+      )}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.stopPropagation()}
+    >
+      <div className="flex min-w-0 items-stretch">
+        <div className="min-w-0 flex-1 px-3 py-2.5">
+          <div
+            className={cn(
+              'mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em]',
+              isCustomer && 'text-gray-500',
+              isBot && 'text-purple-500',
+              tone === 'admin' && 'text-brand-100'
+            )}
+          >
+            <Globe className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{preview.siteName || preview.hostname}</span>
+          </div>
+
+          <p
+            className={cn(
+              'text-sm font-semibold leading-snug',
+              isCustomer && 'text-gray-900',
+              isBot && 'text-purple-900',
+              tone === 'admin' && 'text-white'
+            )}
+          >
+            {preview.title || preview.hostname}
+          </p>
+
+          {preview.description && (
+            <p
+              className={cn(
+                'mt-1 line-clamp-2 text-xs leading-relaxed',
+                isCustomer && 'text-gray-600',
+                isBot && 'text-purple-700/80',
+                tone === 'admin' && 'text-brand-50/85'
+              )}
+            >
+              {preview.description}
+            </p>
+          )}
+
+          <div
+            className={cn(
+              'mt-2 flex items-center gap-1.5 text-[11px]',
+              isCustomer && 'text-blue-600',
+              isBot && 'text-purple-600',
+              tone === 'admin' && 'text-brand-50'
+            )}
+          >
+            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{preview.url}</span>
+          </div>
+        </div>
+
+        {preview.imageUrl && (
+          <div
+            className={cn(
+              'w-20 flex-shrink-0 border-l',
+              isCustomer && 'border-gray-200',
+              isBot && 'border-purple-200',
+              tone === 'admin' && 'border-white/15'
+            )}
+          >
+            <img
+              src={preview.imageUrl}
+              alt={preview.title || preview.hostname}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        )}
+      </div>
+    </a>
+  );
+}
+
+function MessageTextContent({ text, highlight, tone }: { text: string; highlight?: string; tone: MessageTone }) {
+  const urls = useMemo(() => extractUrls(text), [text]);
+  const previewUrl = urls[0] ?? null;
+  const [preview, setPreview] = useState<LinkPreviewData | null>(() =>
+    previewUrl ? linkPreviewCache.get(previewUrl) ?? createFallbackLinkPreview(previewUrl) : null
+  );
+
+  useEffect(() => {
+    if (!previewUrl) {
+      setPreview(null);
+      return;
+    }
+
+    const cachedPreview = linkPreviewCache.get(previewUrl);
+    if (cachedPreview) {
+      setPreview(cachedPreview);
+      return;
+    }
+
+    const fallbackPreview = createFallbackLinkPreview(previewUrl);
+    setPreview(fallbackPreview);
+
+    const controller = new AbortController();
+    let isCancelled = false;
+
+    const loadPreview = async () => {
+      try {
+        const response = await fetch(`/api/link-preview?url=${encodeURIComponent(previewUrl)}`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          linkPreviewCache.set(previewUrl, fallbackPreview);
+          return;
+        }
+
+        const data = (await response.json()) as Partial<LinkPreviewData>;
+        const nextPreview: LinkPreviewData = {
+          ...fallbackPreview,
+          ...data,
+          url: data.url || fallbackPreview.url,
+          hostname: data.hostname || fallbackPreview.hostname,
+        };
+
+        linkPreviewCache.set(previewUrl, nextPreview);
+        if (!isCancelled) {
+          setPreview(nextPreview);
+        }
+      } catch {
+        linkPreviewCache.set(previewUrl, fallbackPreview);
+      }
+    };
+
+    void loadPreview();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [previewUrl]);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+        {renderTextWithLinks(text, highlight, tone)}
+      </p>
+      {previewUrl && preview && <LinkPreviewCard preview={preview} tone={tone} />}
+    </div>
   );
 }
 
@@ -111,6 +328,7 @@ function MessageBubble({
   const isBot = message.senderType === 'BOT';
   const isSystem = message.senderType === 'SYSTEM';
   const isAdmin = message.senderType === 'ADMIN';
+  const messageTone: MessageTone = isCustomer ? 'customer' : isBot ? 'bot' : 'admin';
   const fallbackCustomerName = customerName || 'Customer';
   const fallbackInitial = fallbackCustomerName.charAt(0).toUpperCase();
 
@@ -236,7 +454,7 @@ function MessageBubble({
           })()}
 
           {/* Content */}
-          {renderContent(message, setLightboxUrl, highlight)}
+          {renderContent(message, setLightboxUrl, highlight, messageTone)}
 
           {/* Timestamp */}
           <div className={cn(
@@ -289,7 +507,12 @@ function MessageBubble({
   );
 }
 
-function renderContent(message: Message, onImageClick: (url: string) => void, highlight?: string) {
+function renderContent(
+  message: Message,
+  onImageClick: (url: string) => void,
+  highlight?: string,
+  tone: MessageTone = 'customer'
+) {
   switch (message.contentType) {
     case 'IMAGE':
       return (
@@ -365,11 +588,7 @@ function renderContent(message: Message, onImageClick: (url: string) => void, hi
         return <p className="text-sm">{message.content}</p>;
       }
     default:
-      return (
-        <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-          {highlight ? highlightText(message.content, highlight) : message.content}
-        </p>
-      );
+      return <MessageTextContent text={message.content} highlight={highlight} tone={tone} />;
   }
 }
 
