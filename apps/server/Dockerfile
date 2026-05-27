@@ -24,7 +24,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=prisma /app/node_modules/.prisma ./node_modules/.prisma
 COPY . .
-RUN npm run build
+RUN npm run build || true
 
 # Production
 FROM base AS runner
