@@ -209,6 +209,26 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
     }
   };
 
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (!file) continue;
+        e.preventDefault();
+        if (pendingAttachment) URL.revokeObjectURL(pendingAttachment.previewUrl);
+        setSendError(null);
+        setPendingAttachment({
+          file,
+          previewUrl: URL.createObjectURL(file),
+          contentType: 'IMAGE',
+        });
+        break;
+      }
+    }
+  }, [pendingAttachment]);
+
   const handleInput = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -484,6 +504,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
             value={content}
             onChange={(e) => setContent(e.target.value.slice(0, maxChars))}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             onInput={handleInput}
             placeholder="Type a message..."
             disabled={disabled}
