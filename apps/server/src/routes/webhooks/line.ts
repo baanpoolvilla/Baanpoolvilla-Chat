@@ -32,81 +32,90 @@ router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: 
     for (const event of events) {
       if (event.type !== 'message') continue;
 
-      let content = '';
-      let contentType: IncomingMessage['contentType'] = 'TEXT';
-      let mediaUrl: string | undefined;
-
-      switch (event.message.type) {
-        case 'text':
-          content = event.message.text;
-          contentType = 'TEXT';
-          break;
-        case 'image':
-          content = '[Image]';
-          contentType = 'IMAGE';
-          mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
-          break;
-        case 'video':
-          content = '[Video]';
-          contentType = 'VIDEO';
-          mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
-          break;
-        case 'audio':
-          content = '[Audio]';
-          contentType = 'AUDIO';
-          mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
-          break;
-        case 'file':
-          content = event.message.fileName || '[File]';
-          contentType = 'FILE';
-          mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
-          break;
-        case 'sticker':
-          content = `[Sticker: ${event.message.packageId}/${event.message.stickerId}]`;
-          contentType = 'STICKER';
-          break;
-        case 'location':
-          content = JSON.stringify({
-            title: event.message.title,
-            address: event.message.address,
-            latitude: event.message.latitude,
-            longitude: event.message.longitude,
-          });
-          contentType = 'LOCATION';
-          break;
-        default:
-          content = `[${event.message.type}]`;
-      }
-
-      let displayName = 'LINE User';
-      let avatarUrl: string | undefined;
-
       try {
-        const profile = await LineService.getProfile(event.source.userId);
-        displayName = profile.displayName;
-        avatarUrl = profile.pictureUrl;
-      } catch (profileError) {
-        logger.warn('Failed to get LINE profile', { userId: event.source.userId });
+        let content = '';
+        let contentType: IncomingMessage['contentType'] = 'TEXT';
+        let mediaUrl: string | undefined;
+
+        switch (event.message.type) {
+          case 'text':
+            content = event.message.text;
+            contentType = 'TEXT';
+            break;
+          case 'image':
+            content = '[Image]';
+            contentType = 'IMAGE';
+            mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
+            break;
+          case 'video':
+            content = '[Video]';
+            contentType = 'VIDEO';
+            mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
+            break;
+          case 'audio':
+            content = '[Audio]';
+            contentType = 'AUDIO';
+            mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
+            break;
+          case 'file':
+            content = event.message.fileName || '[File]';
+            contentType = 'FILE';
+            mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
+            break;
+          case 'sticker':
+            content = `[Sticker: ${event.message.packageId}/${event.message.stickerId}]`;
+            contentType = 'STICKER';
+            break;
+          case 'location':
+            content = JSON.stringify({
+              title: event.message.title,
+              address: event.message.address,
+              latitude: event.message.latitude,
+              longitude: event.message.longitude,
+            });
+            contentType = 'LOCATION';
+            break;
+          default:
+            content = `[${event.message.type}]`;
+        }
+
+        let displayName = 'LINE User';
+        let avatarUrl: string | undefined;
+
+        try {
+          const profile = await LineService.getProfile(event.source.userId);
+          displayName = profile.displayName;
+          avatarUrl = profile.pictureUrl;
+        } catch (profileError) {
+          logger.warn('Failed to get LINE profile', { userId: event.source.userId });
+        }
+
+        const incoming: IncomingMessage = {
+          platform: 'LINE',
+          platformUid: event.source.userId,
+          platformMsgId: event.message.id,
+          channelId: event.source.groupId || event.source.roomId || event.source.userId,
+          displayName,
+          avatarUrl,
+          content,
+          contentType,
+          mediaUrl,
+          metadata: {
+            quoteToken: (event.message.quoteToken as string | undefined) ?? null,
+            quotedMessageId: (event.message.quotedMessageId as string | undefined) ?? null,
+            event,
+          },
+        };
+
+        await MessageService.ingest(incoming);
+      } catch (eventError) {
+        logger.error('Failed to process LINE event', {
+          error: eventError,
+          eventType: event.message?.type,
+          messageId: event.message?.id,
+        });
+        // Continue processing remaining events
       }
-
-      const incoming: IncomingMessage = {
-        platform: 'LINE',
-        platformUid: event.source.userId,
-        platformMsgId: event.message.id,
-        channelId: event.source.groupId || event.source.roomId || event.source.userId,
-        displayName,
-        avatarUrl,
-        content,
-        contentType,
-        mediaUrl,
-        metadata: {
-          quoteToken: (event.message.quoteToken as string | undefined) ?? null,
-          quotedMessageId: (event.message.quotedMessageId as string | undefined) ?? null,
-          event,
-        },
-      };
-
-      await MessageService.ingest(incoming);
     }
   } catch (error) {
     logger.error('LINE webhook processing error', { error });

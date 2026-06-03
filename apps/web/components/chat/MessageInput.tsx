@@ -106,7 +106,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
   const [pendingAttachment, setPendingAttachment] = useState<{
     file: File;
     previewUrl: string;
-    contentType: 'IMAGE' | 'VIDEO';
+    contentType: 'IMAGE' | 'VIDEO' | 'FILE';
   } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -177,7 +177,12 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
           setSendError(`ไม่สามารถอัปโหลดไฟล์: ${msg}`);
           return;
         }
-        await onSend(trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : '[Image]'), pendingAttachment.contentType, mediaUrl, replyingTo?.id);
+        await onSend(
+          trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : pendingAttachment.contentType === 'FILE' ? pendingAttachment.file.name : '[Image]'),
+          pendingAttachment.contentType,
+          mediaUrl,
+          replyingTo?.id,
+        );
         clearAttachment();
       } else {
         await onSend(trimmed, undefined, undefined, replyingTo?.id);
@@ -238,7 +243,8 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && file.size > 25 * 1024 * 1024) {
+      setSendError('ไฟล์ใหญ่เกิน 25 MB');
       e.target.value = '';
       return;
     }
@@ -247,11 +253,17 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
       URL.revokeObjectURL(pendingAttachment.previewUrl);
     }
 
+    const contentType = file.type.startsWith('video/')
+      ? 'VIDEO'
+      : file.type.startsWith('image/')
+      ? 'IMAGE'
+      : 'FILE';
+
     setSendError(null);
     setPendingAttachment({
       file,
-      previewUrl: URL.createObjectURL(file),
-      contentType: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
+      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+      contentType,
     });
 
     e.target.value = '';
@@ -317,7 +329,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,video/*"
+          accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
           className="hidden"
           onChange={handleAttachmentChange}
         />
@@ -430,25 +442,27 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
           {pendingAttachment && (
             <div className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2">
               <div className="flex items-start gap-3">
-                <div className="h-16 w-16 overflow-hidden rounded-lg bg-gray-100">
+                <div className="h-16 w-16 overflow-hidden rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
                   {pendingAttachment.contentType === 'IMAGE' ? (
                     <img
                       src={pendingAttachment.previewUrl}
                       alt={pendingAttachment.file.name}
                       className="h-full w-full object-cover"
                     />
-                  ) : (
+                  ) : pendingAttachment.contentType === 'VIDEO' ? (
                     <video
                       src={pendingAttachment.previewUrl}
                       className="h-full w-full object-cover"
                       muted
                     />
+                  ) : (
+                    <span className="text-2xl">📎</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-semibold text-gray-700">{pendingAttachment.file.name}</p>
                   <p className="text-[11px] text-gray-400">
-                    {pendingAttachment.contentType === 'VIDEO' ? 'วิดีโอพร้อมส่ง' : 'รูปภาพพร้อมส่ง'}
+                    {pendingAttachment.contentType === 'VIDEO' ? 'วิดีโอพร้อมส่ง' : pendingAttachment.contentType === 'FILE' ? 'ไฟล์พร้อมส่ง' : 'รูปภาพพร้อมส่ง'}
                   </p>
                   {sendError && (
                     <p className="mt-1 text-[11px] font-medium text-red-500">{sendError}</p>

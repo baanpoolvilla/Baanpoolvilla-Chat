@@ -68,6 +68,15 @@ export class LineService {
           });
           break;
         }
+        case 'FILE': {
+          // LINE Messaging API doesn't support arbitrary file uploads — send as text with download link
+          const fileName = content && content !== '[File]' ? content : 'File';
+          const displayText = mediaUrl ? `📎 ${fileName}\n${mediaUrl}` : `📎 ${fileName}`;
+          const fileMsg: Record<string, unknown> = { type: 'text', text: displayText };
+          if (quoteToken) fileMsg.quoteToken = quoteToken;
+          messages.push(fileMsg);
+          break;
+        }
         case 'STICKER': {
           const match = content.match(/\[Sticker:\s*(\d+)\/(\d+)\]/);
           let packageId = match?.[1] || '1';

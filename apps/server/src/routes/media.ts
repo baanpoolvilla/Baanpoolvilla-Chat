@@ -41,12 +41,24 @@ router.post('/upload', authMiddleware(), requireChatWriteAccess, async (req: Req
       return;
     }
 
-    if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
-      res.status(400).json({ error: 'Only image and video uploads are allowed' });
-      return;
-    }
-
-    const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'bin';
+    const mimeToExt: Record<string, string> = {
+      'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
+      'image/webp': 'webp', 'image/svg+xml': 'svg',
+      'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
+      'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/ogg': 'ogg',
+      'application/pdf': 'pdf',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'application/vnd.ms-excel': 'xls',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+      'application/vnd.ms-powerpoint': 'ppt',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+      'application/zip': 'zip',
+      'application/x-rar-compressed': 'rar',
+      'text/plain': 'txt',
+      'text/csv': 'csv',
+    };
+    const ext = mimeToExt[mimeType] || mimeType.split('/')[1]?.split('+')[0]?.replace('jpeg', 'jpg') || 'bin';
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
     const filePath = path.join(uploadDir, filename);
 
