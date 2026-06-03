@@ -352,6 +352,11 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
               const matchIdx = matchIds.indexOf(msg.id);
               const prev = messages[idx - 1];
               const next = messages[idx + 1];
+              const isLatestMessage = idx === messages.length - 1;
+              // Only show reads from admins who read AFTER this message was sent
+              const freshReads = isLatestMessage
+                ? reads.filter((r) => new Date(r.readAt) >= new Date(msg.sentAt))
+                : [];
               // Group ถ้าข้อความก่อนหน้าเป็นคนเดียวกัน และห่างกันไม่เกิน 5 นาที
               const isGrouped = !!(
                 prev &&
@@ -380,32 +385,31 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                     isGrouped={isGrouped}
                     isLastInGroup={isLastInGroup}
                   />
+
+                  {isLatestMessage && freshReads.length > 0 && (
+                    <div className="flex flex-col items-end gap-1 px-1 pt-2">
+                      {freshReads.slice(0, 5).map((r) => (
+                        <div key={r.admin.id} className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-gray-400">
+                            อ่านแล้ว ·{' '}
+                            <span className="text-gray-500 font-medium">{r.admin.name}</span>
+                            {' · '}
+                            {format(new Date(r.readAt), 'HH:mm')}
+                          </span>
+                          <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-[8px] font-medium text-brand-700">
+                            {r.admin.avatar ? (
+                              <img src={r.admin.avatar} alt={r.admin.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                            ) : (
+                              r.admin.name.charAt(0).toUpperCase()
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
-
-            {/* Read by indicator */}
-            {reads.length > 0 && (
-              <div className="flex flex-col items-end gap-1 px-1 pt-2">
-                {reads.slice(0, 5).map((r) => (
-                  <div key={r.admin.id} className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-gray-400">
-                      อ่านแล้ว ·{' '}
-                      <span className="text-gray-500 font-medium">{r.admin.name}</span>
-                      {' · '}
-                      {format(new Date(r.readAt), 'HH:mm')}
-                    </span>
-                    <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 text-[8px] font-medium text-brand-700 overflow-hidden">
-                      {r.admin.avatar ? (
-                        <img src={r.admin.avatar} alt={r.admin.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-                      ) : (
-                        r.admin.name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
 
             <div ref={messagesEndRef} />
           </div>
