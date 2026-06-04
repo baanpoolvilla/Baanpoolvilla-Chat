@@ -114,17 +114,17 @@ function LinkPreviewCard({ preview, tone }: { preview: LinkPreviewData; tone: Me
       onContextMenu={(e) => e.stopPropagation()}
     >
       <div className="flex min-w-0 items-stretch">
-        <div className="min-w-0 flex-1 px-3 py-2.5">
+        <div className="min-w-0 flex-1 overflow-hidden px-3 py-2.5">
           <div
             className={cn(
-              'mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em]',
+              'mb-1 flex min-w-0 items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em]',
               isCustomer && 'text-gray-500',
               isBot && 'text-purple-500',
               tone === 'admin' && 'text-brand-100'
             )}
           >
             <Globe className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{preview.siteName || preview.hostname}</span>
+            <span className="min-w-0 truncate">{preview.siteName || preview.hostname}</span>
           </div>
 
           <p
@@ -153,14 +153,14 @@ function LinkPreviewCard({ preview, tone }: { preview: LinkPreviewData; tone: Me
 
           <div
             className={cn(
-              'mt-2 flex items-center gap-1.5 text-[11px]',
+              'mt-2 flex min-w-0 items-center gap-1.5 text-[11px]',
               isCustomer && 'text-blue-600',
               isBot && 'text-purple-600',
               tone === 'admin' && 'text-brand-50'
             )}
           >
             <ExternalLink className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{preview.url}</span>
+            <span className="min-w-0 truncate">{preview.url}</span>
           </div>
         </div>
 
