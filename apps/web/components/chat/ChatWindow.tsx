@@ -41,15 +41,6 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
 
-  const scrollToBottom = (behavior: ScrollBehavior) => {
-    // Use scrollTop directly instead of scrollIntoView — avoids iOS Safari bug
-    // where scrollIntoView scrolls through overflow:hidden ancestor elements,
-    // causing the entire page layout to shift and the header to disappear.
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
-  };
-
   useEffect(() => {
     shouldJumpToBottomRef.current = true;
     setReplyingTo(null);
@@ -166,9 +157,14 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
   useLayoutEffect(() => {
     if (messages.length === 0) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-    const behavior: ScrollBehavior = shouldJumpToBottomRef.current ? 'auto' : 'smooth';
-    scrollToBottom(behavior);
+    // Only scroll if content overflows — when it fits, messages naturally appear at top
+    if (container.scrollHeight > container.clientHeight) {
+      const behavior: ScrollBehavior = shouldJumpToBottomRef.current ? 'auto' : 'smooth';
+      container.scrollTo({ top: container.scrollHeight, behavior });
+    }
     shouldJumpToBottomRef.current = false;
   }, [conversationId, messages.length]);
 
@@ -351,14 +347,14 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 md:px-6 md:py-4 flex flex-col"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 md:px-6 md:py-4"
       >
         {isLoading && messages.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="h-full flex items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         ) : (
-          <div ref={messagesWrapperRef} className="mt-auto w-full pb-1">
+          <div ref={messagesWrapperRef} className="pb-1">
             {hasMore && (
               <button
                 onClick={loadMore}
