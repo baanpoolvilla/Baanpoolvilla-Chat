@@ -28,6 +28,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const { on } = useSocket();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const messagesWrapperRef = useRef<HTMLDivElement>(null);
   const shouldJumpToBottomRef = useRef(true);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -57,6 +58,23 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     setCurrentMatchIdx(0);
     setReads(conversation?.reads || []);
   }, [conversationId, conversation?.reads]);
+
+  // ResizeObserver: re-scroll เมื่อ image/link-preview โหลดเสร็จและ content สูงขึ้น
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    const wrapper = messagesWrapperRef.current;
+    if (!container || !wrapper) return;
+
+    const observer = new ResizeObserver(() => {
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 150) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+      }
+    });
+
+    observer.observe(wrapper);
+    return () => observer.disconnect();
+  }, [conversationId]);
 
   // Real-time: อัปเดตรายการผู้อ่านเมื่อ admin อื่น join ห้องเดียวกัน
   useEffect(() => {
@@ -332,14 +350,16 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 md:px-6 md:py-4"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 md:px-6 md:py-4 flex flex-col"
       >
         {isLoading && messages.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex-1 flex items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         ) : (
-          <div className="pb-1">
+          <>
+            <div className="flex-1" />
+            <div ref={messagesWrapperRef} className="pb-1">
             {hasMore && (
               <button
                 onClick={loadMore}
@@ -413,6 +433,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
             <div ref={messagesEndRef} />
           </div>
+          </>
         )}
       </div>
 
