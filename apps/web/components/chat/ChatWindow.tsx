@@ -339,7 +339,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         ) : (
-          <div className="pb-1">
+          <div className="min-h-full flex flex-col justify-end pb-1">
             {hasMore && (
               <button
                 onClick={loadMore}
