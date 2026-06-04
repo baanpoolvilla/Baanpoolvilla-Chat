@@ -129,7 +129,7 @@ function LinkPreviewCard({ preview, tone }: { preview: LinkPreviewData; tone: Me
 
           <p
             className={cn(
-              'text-sm font-semibold leading-snug',
+              'text-sm font-semibold leading-snug break-words',
               isCustomer && 'text-gray-900',
               isBot && 'text-purple-900',
               tone === 'admin' && 'text-white'
@@ -390,7 +390,7 @@ function MessageBubble({
           onTouchMove={handleTouchMove}
           onClick={handleClick}
           className={cn(
-            'rounded-2xl px-3 py-2 sm:px-4 transition-shadow cursor-default select-text',
+            'min-w-0 overflow-hidden rounded-2xl px-3 py-2 sm:px-4 transition-shadow cursor-default select-text',
             isCustomer && 'bg-white text-gray-900 rounded-bl-sm shadow-sm border border-gray-100',
             isAdmin && 'bg-brand-600 text-white rounded-br-sm',
             isBot && 'bg-purple-100 text-purple-900 rounded-br-sm',
