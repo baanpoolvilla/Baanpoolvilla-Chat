@@ -190,9 +190,7 @@ function LinkPreviewCard({ preview, tone }: { preview: LinkPreviewData; tone: Me
 function MessageTextContent({ text, highlight, tone }: { text: string; highlight?: string; tone: MessageTone }) {
   const urls = useMemo(() => extractUrls(text), [text]);
   const previewUrl = urls[0] ?? null;
-  const [preview, setPreview] = useState<LinkPreviewData | null>(() =>
-    previewUrl ? linkPreviewCache.get(previewUrl) ?? createFallbackLinkPreview(previewUrl) : null
-  );
+  const [preview, setPreview] = useState<LinkPreviewData | null>(null);
 
   useEffect(() => {
     if (!previewUrl) {
@@ -249,12 +247,16 @@ function MessageTextContent({ text, highlight, tone }: { text: string; highlight
   }, [previewUrl]);
 
   return (
-    <div className="space-y-2">
+    <>
       <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
         {renderTextWithLinks(text, highlight, tone)}
       </p>
-      {previewUrl && preview && <LinkPreviewCard preview={preview} tone={tone} />}
-    </div>
+      {preview && (
+        <div className="mt-2">
+          <LinkPreviewCard preview={preview} tone={tone} />
+        </div>
+      )}
+    </>
   );
 }
 

@@ -390,7 +390,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                     <div className="flex flex-col items-end gap-1 px-1 pt-2">
                       {freshReads.slice(0, 5).map((r) => (
                         <div key={r.admin.id} className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-gray-400">
+                          <span className="text-[10px] text-gray-400" suppressHydrationWarning>
                             อ่านแล้ว ·{' '}
                             <span className="text-gray-500 font-medium">{r.admin.name}</span>
                             {' · '}
