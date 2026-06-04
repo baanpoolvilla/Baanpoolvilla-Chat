@@ -308,7 +308,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                     className="min-w-0 flex-1 text-left"
                   >
                     <p className="truncate text-xs text-gray-700">{msg.content.slice(0, 80)}</p>
-                    <p className="mt-0.5 text-[10px] text-amber-600">
+                    <p className="mt-0.5 text-[10px] text-amber-600" suppressHydrationWarning>
                       {msg.admin?.name || 'Customer'} · {format(new Date(msg.pinnedAt || msg.sentAt), 'HH:mm')}
                     </p>
                   </button>

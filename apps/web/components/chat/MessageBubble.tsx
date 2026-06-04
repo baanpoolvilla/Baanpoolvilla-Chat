@@ -459,10 +459,13 @@ function MessageBubble({
           {renderContent(message, setLightboxUrl, highlight, messageTone)}
 
           {/* Timestamp */}
-          <div className={cn(
-            'mt-1 text-[10px] flex items-center gap-1',
-            isCustomer ? 'text-gray-400 justify-start' : isBot ? 'text-purple-400 justify-end' : 'text-brand-200 justify-end'
-          )}>
+          <div
+            suppressHydrationWarning
+            className={cn(
+              'mt-1 text-[10px] flex items-center gap-1',
+              isCustomer ? 'text-gray-400 justify-start' : isBot ? 'text-purple-400 justify-end' : 'text-brand-200 justify-end'
+            )}
+          >
             {format(new Date(message.sentAt), 'HH:mm')}
           </div>
         </div>
