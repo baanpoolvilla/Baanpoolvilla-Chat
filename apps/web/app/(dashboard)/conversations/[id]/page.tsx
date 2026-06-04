@@ -144,7 +144,7 @@ export default function ConversationDetailPage() {
 
       {/* Info Panel */}
       {desktopInfoVisible && isXlUp && (
-        <div className="hidden w-80 min-h-0 flex-shrink-0 overflow-hidden border-l border-gray-200 bg-white xl:block">
+        <div className="hidden w-80 min-h-0 flex-shrink-0 overflow-y-auto border-l border-gray-200 bg-white xl:block">
           <ConversationInfo
             conversationId={selectedId}
             conversation={conversation}

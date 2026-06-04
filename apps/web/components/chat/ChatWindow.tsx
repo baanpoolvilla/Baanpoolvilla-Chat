@@ -332,14 +332,16 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 md:px-6 md:py-4"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 md:px-6 md:py-4 flex flex-col"
       >
         {isLoading && messages.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex-1 flex items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         ) : (
-          <div className="min-h-full flex flex-col justify-end pb-1">
+          <>
+            <div className="flex-1" />
+            <div className="pb-1">
             {hasMore && (
               <button
                 onClick={loadMore}
@@ -413,6 +415,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
             <div ref={messagesEndRef} />
           </div>
+          </>
         )}
       </div>
 
