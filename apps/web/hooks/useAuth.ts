@@ -35,7 +35,11 @@ function readStoredAdmin(): Pick<AuthState, 'admin' | 'isAuthenticated' | 'isLoa
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
-  ...readStoredAdmin(),
+  // Start with loading=true (same as server) so initial SSR and client renders match.
+  // loadSession() is called in DashboardLayout useEffect to populate from localStorage.
+  admin: null,
+  isAuthenticated: false,
+  isLoading: true,
 
   login: async (email: string, password: string) => {
     const response = await api.post<LoginResponse>('/api/auth/login', { email, password });
