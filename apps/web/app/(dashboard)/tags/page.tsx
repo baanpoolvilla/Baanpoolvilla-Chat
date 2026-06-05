@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useRef } from 'react';
 import api from '@/lib/api';
 import type { Tag, TagCategory } from '@/types';
 import { getTagTextColor, withAlpha } from '@/lib/utils';
+import { Palette } from 'lucide-react';
 
 interface CategoryWithTags extends TagCategory {
   tags: Tag[];
@@ -241,12 +242,23 @@ export default function TagsPage() {
                           placeholder="ชื่อแท็ก"
                           className="w-28 px-3 py-1 text-sm border border-brand-400 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                         />
-                        <input
-                          type="color"
-                          value={editingColor}
-                          onChange={(e) => setEditingColor(e.target.value)}
-                          className="w-8 h-8 rounded border border-gray-300 cursor-pointer"
-                        />
+                        <label
+                          className="relative flex items-center gap-1.5 cursor-pointer rounded-lg border-2 border-dashed border-gray-300 px-2.5 py-1 text-xs text-gray-500 hover:border-brand-400 hover:text-brand-600 transition-colors"
+                          title="เปลี่ยนสีแท็ก"
+                        >
+                          <span
+                            className="h-4 w-4 rounded-full border border-white shadow-sm flex-shrink-0"
+                            style={{ backgroundColor: editingColor }}
+                          />
+                          <Palette className="h-3.5 w-3.5" />
+                          <span>เปลี่ยนสี</span>
+                          <input
+                            type="color"
+                            value={editingColor}
+                            onChange={(e) => setEditingColor(e.target.value)}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                        </label>
                         <input
                           type="text"
                           value={editingDesc}
