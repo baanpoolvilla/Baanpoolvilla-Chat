@@ -418,7 +418,7 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
               onChange={(e) => setPhoneValue(e.target.value.replace(/\D/g, ''))}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSavePhone(); if (e.key === 'Escape') setEditingPhone(false); }}
               placeholder="เบอร์โทรศัพท์ (ตัวเลขเท่านั้น)"
-              maxLength={15}
+              maxLength={10}
               autoFocus
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
