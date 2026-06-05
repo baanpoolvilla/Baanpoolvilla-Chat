@@ -359,6 +359,14 @@ export class MessageService {
       const io = getSocketIO();
       io.to(`conversation:${params.conversationId}`).emit('message:new', message);
 
+      const fullConversation = await prisma.conversation.findUnique({
+        where: { id: params.conversationId },
+        select: conversationSummarySelect,
+      });
+      if (fullConversation) {
+        io.emit('conversation:updated', fullConversation);
+      }
+
       const platformContact = conversation.contact.platformLinks.find(
         (pl) => pl.platform === conversation.platform
       );

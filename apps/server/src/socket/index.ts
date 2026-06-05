@@ -7,11 +7,14 @@ import { chatHandler } from './chatHandler';
 import { presenceHandler } from './presenceHandler';
 
 export function initSocketIO(httpServer: HttpServer): SocketIOServer {
+  const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.NEXT_PUBLIC_API_URL
-        ? new URL(process.env.NEXT_PUBLIC_API_URL).origin
-        : '*',
+      origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },
