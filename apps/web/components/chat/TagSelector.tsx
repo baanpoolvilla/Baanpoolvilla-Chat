@@ -139,8 +139,8 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
 
           {/* Description panel — แสดงด้านล่าง dropdown เมื่อ hover tag ที่มีรายละเอียด */}
           {hoveredTag?.description && (
-            <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 rounded-b-lg">
-              <p className="text-[11px] text-gray-500 leading-relaxed">{hoveredTag.description}</p>
+            <div className="border-t border-gray-200 bg-gray-900 px-3 py-2 rounded-b-lg">
+              <p className="text-[11px] text-white leading-relaxed">{hoveredTag.description}</p>
             </div>
           )}
         </div>
