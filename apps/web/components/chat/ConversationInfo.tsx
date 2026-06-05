@@ -30,8 +30,10 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
-  const [editingPhone, setEditingPhone] = useState(false);
-  const [phoneValue, setPhoneValue] = useState('');
+  const [showPhoneInput, setShowPhoneInput] = useState(false);
+  const [newPhoneValue, setNewPhoneValue] = useState('');
+  const [editingPhoneIdx, setEditingPhoneIdx] = useState<number | null>(null);
+  const [editingPhoneValue, setEditingPhoneValue] = useState('');
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
 
@@ -125,17 +127,41 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
     }
   };
 
-  const handleSavePhone = async () => {
-    if (!canModifyChat || !conversation) return;
+  function parsePhones(raw?: string | null): string[] {
+    if (!raw) return [];
     try {
-      await api.patch(`/api/contacts/${conversation.contact.id}`, {
-        phone: phoneValue.trim() || null,
-      });
-      await refreshConversation();
-      setEditingPhone(false);
-    } catch (error) {
-      console.error('Failed to save phone:', error);
-    }
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch {}
+    return [raw]; // backward compat: plain string → single item
+  }
+
+  const savePhones = async (list: string[]) => {
+    if (!conversation) return;
+    await api.patch(`/api/contacts/${conversation.contact.id}`, {
+      phone: list.length > 0 ? JSON.stringify(list) : null,
+    });
+    await refreshConversation();
+  };
+
+  const handleAddPhone = async () => {
+    if (!newPhoneValue.trim()) return;
+    const updated = [...parsePhones(contact?.phone), newPhoneValue.trim()];
+    await savePhones(updated);
+    setShowPhoneInput(false);
+    setNewPhoneValue('');
+  };
+
+  const handleEditPhone = async (idx: number) => {
+    if (!editingPhoneValue.trim()) return;
+    const updated = parsePhones(contact?.phone).map((p, i) => (i === idx ? editingPhoneValue.trim() : p));
+    await savePhones(updated);
+    setEditingPhoneIdx(null);
+  };
+
+  const handleDeletePhone = async (idx: number) => {
+    const updated = parsePhones(contact?.phone).filter((_, i) => i !== idx);
+    await savePhones(updated);
   };
 
   const handleResetName = async () => {
@@ -400,53 +426,92 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
       <div className="border-t border-gray-200 p-4">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-xs font-semibold uppercase text-gray-400">เบอร์โทร</h4>
-          {canModifyChat && !editingPhone && (
+          {canModifyChat && (
             <button
-              onClick={() => { setPhoneValue(contact.phone || ''); setEditingPhone(true); }}
+              onClick={() => setShowPhoneInput(!showPhoneInput)}
               className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
-              <Pencil className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
-        {editingPhone ? (
-          <div>
+
+        {canModifyChat && showPhoneInput && (
+          <div className="mb-3">
             <input
               type="tel"
               inputMode="numeric"
-              value={phoneValue}
-              onChange={(e) => setPhoneValue(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSavePhone(); if (e.key === 'Escape') setEditingPhone(false); }}
-              placeholder="เบอร์โทรศัพท์ (ตัวเลขเท่านั้น)"
+              value={newPhoneValue}
+              onChange={(e) => setNewPhoneValue(e.target.value.replace(/\D/g, ''))}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAddPhone(); if (e.key === 'Escape') { setShowPhoneInput(false); setNewPhoneValue(''); } }}
+              placeholder="เบอร์โทร (ตัวเลขเท่านั้น)"
               maxLength={10}
               autoFocus
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
             <div className="mt-1 flex justify-end gap-2">
               <button
-                onClick={() => setEditingPhone(false)}
+                onClick={() => { setShowPhoneInput(false); setNewPhoneValue(''); }}
                 className="rounded px-3 py-1 text-xs text-gray-500 hover:bg-gray-100"
               >
                 ยกเลิก
               </button>
               <button
-                onClick={handleSavePhone}
+                onClick={handleAddPhone}
                 className="rounded bg-brand-600 px-3 py-1 text-xs text-white hover:bg-brand-700"
               >
                 บันทึก
               </button>
             </div>
           </div>
-        ) : (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
-            {contact.phone ? (
-              <span>{contact.phone}</span>
-            ) : (
-              <span className="text-gray-300 italic text-xs">ยังไม่มีเบอร์โทร</span>
-            )}
-          </div>
         )}
+
+        <div className="space-y-2">
+          {parsePhones(contact.phone).map((phone, idx) => (
+            <div key={idx} className="group flex items-center gap-2">
+              {editingPhoneIdx === idx ? (
+                <>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    value={editingPhoneValue}
+                    onChange={(e) => setEditingPhoneValue(e.target.value.replace(/\D/g, ''))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleEditPhone(idx); if (e.key === 'Escape') setEditingPhoneIdx(null); }}
+                    maxLength={10}
+                    autoFocus
+                    className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none"
+                  />
+                  <button onClick={() => handleEditPhone(idx)} className="text-green-500 hover:text-green-700"><Check className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => setEditingPhoneIdx(null)} className="text-gray-400 hover:text-gray-600"><X className="h-3.5 w-3.5" /></button>
+                </>
+              ) : (
+                <>
+                  <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <span className="text-sm text-gray-600 flex-1">{phone}</span>
+                  {canModifyChat && (
+                    <div className="hidden group-hover:flex gap-1">
+                      <button
+                        onClick={() => { setEditingPhoneIdx(idx); setEditingPhoneValue(phone); }}
+                        className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeletePhone(idx)}
+                        className="rounded p-0.5 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+          {parsePhones(contact.phone).length === 0 && !showPhoneInput && (
+            <p className="text-xs text-gray-300 italic">ยังไม่มีเบอร์โทร</p>
+          )}
+        </div>
       </div>
     </div>
   );
