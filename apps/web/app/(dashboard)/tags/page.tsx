@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent, useRef } from 'react';
 import api from '@/lib/api';
 import type { Tag, TagCategory } from '@/types';
 import { getTagTextColor, withAlpha } from '@/lib/utils';
-import { Palette } from 'lucide-react';
+import { Palette, Pencil } from 'lucide-react';
 
 interface CategoryWithTags extends TagCategory {
   tags: Tag[];
@@ -164,12 +164,23 @@ export default function TagsPage() {
               placeholder="ชื่อแท็ก"
               className="max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
-            <input
-              type="color"
-              value={newTagColor}
-              onChange={(e) => setNewTagColor(e.target.value)}
-              className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
-            />
+            <label
+              className="relative flex items-center gap-1.5 cursor-pointer rounded-lg border-2 border-dashed border-gray-300 px-3 py-2 text-xs text-gray-500 hover:border-brand-400 hover:text-brand-600 transition-colors"
+              title="เลือกสีแท็ก"
+            >
+              <span
+                className="h-4 w-4 rounded-full border border-white shadow-sm flex-shrink-0"
+                style={{ backgroundColor: newTagColor }}
+              />
+              <Palette className="h-3.5 w-3.5" />
+              <span>เลือกสี</span>
+              <input
+                type="color"
+                value={newTagColor}
+                onChange={(e) => setNewTagColor(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </label>
           </div>
           <div className="flex gap-3">
             <input
@@ -211,9 +222,9 @@ export default function TagsPage() {
                   ลบหมวดหมู่
                 </button>
               </div>
-              <div className="space-y-2">
+              <div className="divide-y divide-gray-100">
                 {category.tags.map((tag) => (
-                  <div key={tag.id} className="flex items-start gap-3">
+                  <div key={tag.id} className="flex items-center gap-3 py-2.5">
                     {/* Tag badge preview */}
                     <span
                       className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm flex-shrink-0"
@@ -283,18 +294,20 @@ export default function TagsPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span
-                          className="text-sm text-gray-500 truncate cursor-pointer hover:text-brand-600"
-                          onClick={() => startEditTag(tag)}
-                          title="คลิกเพื่อแก้ไข"
-                        >
-                          {tag.description || (
-                            <span className="italic text-gray-300">+ เพิ่มรายละเอียด / แก้ไขชื่อ</span>
-                          )}
+                        <span className="text-sm text-gray-400 truncate flex-1">
+                          {tag.description || <span className="italic text-gray-300">ไม่มีรายละเอียด</span>}
                         </span>
                         <button
+                          onClick={() => startEditTag(tag)}
+                          className="flex-shrink-0 flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:border-brand-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                          title="แก้ไขแท็ก"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          แก้ไข
+                        </button>
+                        <button
                           onClick={() => handleDeleteTag(tag.id)}
-                          className="ml-auto flex-shrink-0 text-xs text-red-400 hover:text-red-600"
+                          className="flex-shrink-0 text-xs text-red-400 hover:text-red-600"
                         >
                           ลบ
                         </button>
