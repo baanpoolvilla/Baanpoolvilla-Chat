@@ -16,6 +16,7 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
   const [categories, setCategories] = useState<TagCategory[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [hoveredTag, setHoveredTag] = useState<Tag | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,7 +84,10 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
 
       {isOpen && (
         <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-gray-200 bg-white shadow-lg">
-          <div className="max-h-64 overflow-y-auto p-2">
+          <div
+            className="max-h-64 overflow-y-auto p-2"
+            onMouseLeave={() => setHoveredTag(null)}
+          >
             {groupedTags.map((cat) =>
               cat.tags.length > 0 ? (
                 <div key={cat.id} className="mb-2">
@@ -93,13 +97,12 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
                   {cat.tags.map((tag) => (
                     <button
                       key={tag.id}
-                      onClick={() => {
-                        onAdd(tag.id);
-                      }}
+                      onClick={() => onAdd(tag.id)}
+                      onMouseEnter={() => setHoveredTag(tag)}
                       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-100"
                     >
                       <span
-                        className="h-2.5 w-2.5 rounded-full"
+                        className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
                         style={{ backgroundColor: tag.color }}
                       />
                       {tag.name}
@@ -116,14 +119,12 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
                 {uncategorized.map((tag) => (
                   <button
                     key={tag.id}
-                    onClick={() => {
-                      onAdd(tag.id);
-                      setIsOpen(false);
-                    }}
+                    onClick={() => onAdd(tag.id)}
+                    onMouseEnter={() => setHoveredTag(tag)}
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-100"
                   >
                     <span
-                      className="h-2.5 w-2.5 rounded-full"
+                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
                       style={{ backgroundColor: tag.color }}
                     />
                     {tag.name}
@@ -135,6 +136,13 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
               <p className="px-2 py-3 text-center text-sm text-gray-400">No more tags available</p>
             )}
           </div>
+
+          {/* Description panel — แสดงด้านล่าง dropdown เมื่อ hover tag ที่มีรายละเอียด */}
+          {hoveredTag?.description && (
+            <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 rounded-b-lg">
+              <p className="text-[11px] text-gray-500 leading-relaxed">{hoveredTag.description}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
