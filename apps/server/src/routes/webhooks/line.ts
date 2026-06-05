@@ -100,6 +100,7 @@ router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: 
           content,
           contentType,
           mediaUrl,
+          timestamp: event.timestamp, // LINE event timestamp (ms) — used for correct sentAt ordering
           metadata: {
             quoteToken: (event.message.quoteToken as string | undefined) ?? null,
             quotedMessageId: (event.message.quotedMessageId as string | undefined) ?? null,

@@ -1,5 +1,6 @@
 import { Platform, SenderType, ContentType, Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
+import { redis } from '../lib/redis';
 import { getSocketIO } from '../lib/socket';
 import { logger } from '../lib/logger';
 import { AiBotService } from './AiBotService';
@@ -47,6 +48,7 @@ export interface IncomingMessage {
   contentType: ContentType;
   mediaUrl?: string;
   metadata?: Record<string, unknown>;
+  timestamp?: number; // Unix ms from platform event (used for sentAt ordering)
 }
 
 function getReplySenderLabel(replyMessage: {
@@ -116,13 +118,35 @@ function formatQuotedOutboundText(content: string, replyMessage?: {
 export class MessageService {
   static async ingest(incoming: IncomingMessage): Promise<void> {
     try {
+      // ── Deduplication: atomic Redis lock first, then DB fallback ──────────
       if (incoming.platformMsgId) {
-        const existing = await prisma.message.findFirst({
-          where: { platformMsgId: incoming.platformMsgId },
-        });
-        if (existing) {
-          logger.debug('Duplicate message ignored', { platformMsgId: incoming.platformMsgId });
-          return;
+        let redisOk = false;
+        try {
+          // SET NX is atomic: only one concurrent caller wins; others get null → skip
+          const acquired = await redis.set(
+            `dedup:msg:${incoming.platformMsgId}`,
+            '1',
+            'EX',
+            86400,
+            'NX',
+          );
+          if (acquired === null) {
+            logger.debug('Duplicate message ignored (Redis)', { platformMsgId: incoming.platformMsgId });
+            return;
+          }
+          redisOk = true;
+        } catch {
+          // Redis unavailable — fall through to DB check below
+        }
+
+        if (!redisOk) {
+          const existing = await prisma.message.findFirst({
+            where: { platformMsgId: incoming.platformMsgId },
+          });
+          if (existing) {
+            logger.debug('Duplicate message ignored (DB)', { platformMsgId: incoming.platformMsgId });
+            return;
+          }
         }
       }
 
@@ -232,6 +256,8 @@ export class MessageService {
             metadata: incoming.metadata as Prisma.InputJsonValue | undefined,
             platformMsgId: incoming.platformMsgId,
             ...(replyToMessageId && { replyToMessageId }),
+            // Use platform event timestamp so rapid messages sort correctly
+            ...(incoming.timestamp && { sentAt: new Date(incoming.timestamp) }),
           },
           select: messageWithReplySelect,
         });
@@ -270,6 +296,11 @@ export class MessageService {
         senderType: 'CUSTOMER',
       });
     } catch (error) {
+      // P2002 = unique constraint violation: a concurrent request already inserted this message
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        logger.debug('Duplicate message ignored (unique constraint)', { platformMsgId: incoming.platformMsgId });
+        return;
+      }
       logger.error('MessageService.ingest failed', { error, incoming });
       throw error;
     }

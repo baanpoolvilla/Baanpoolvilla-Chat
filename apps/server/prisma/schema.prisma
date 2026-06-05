@@ -163,7 +163,7 @@ model Message {
   contentType    ContentType  @default(TEXT)
   mediaUrl       String?
   metadata       Json?
-  platformMsgId  String?
+  platformMsgId  String?      @unique
   isRead         Boolean      @default(false)
   isPinned       Boolean      @default(false)
   pinnedAt       DateTime?
@@ -175,7 +175,6 @@ model Message {
 
   @@index([conversationId, sentAt])
   @@index([conversationId, isRead], map: "Message_conversationId_isRead_idx")
-  @@index([platformMsgId], map: "Message_platformMsgId_idx")
   @@index([replyToMessageId], map: "Message_replyToMessageId_idx")
 }
 
