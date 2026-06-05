@@ -113,7 +113,7 @@ function LinkPreviewCard({ preview, tone }: { preview: LinkPreviewData; tone: Me
       onTouchEnd={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
     >
-      <div className="flex min-w-0 items-stretch">
+      <div className="flex min-w-0 items-start">
         <div className="min-w-0 flex-1 overflow-hidden px-3 py-2.5">
           <div
             className={cn(
@@ -141,7 +141,7 @@ function LinkPreviewCard({ preview, tone }: { preview: LinkPreviewData; tone: Me
           {preview.description && (
             <p
               className={cn(
-                'mt-1 line-clamp-2 text-xs leading-relaxed',
+                'mt-1 line-clamp-1 text-xs leading-relaxed',
                 isCustomer && 'text-gray-600',
                 isBot && 'text-purple-700/80',
                 tone === 'admin' && 'text-brand-50/85'
@@ -167,7 +167,7 @@ function LinkPreviewCard({ preview, tone }: { preview: LinkPreviewData; tone: Me
         {preview.imageUrl && (
           <div
             className={cn(
-              'w-20 flex-shrink-0 border-l',
+              'h-[64px] w-16 flex-shrink-0 border-l',
               isCustomer && 'border-gray-200',
               isBot && 'border-purple-200',
               tone === 'admin' && 'border-white/15'
@@ -252,7 +252,7 @@ function MessageTextContent({ text, highlight, tone }: { text: string; highlight
         {renderTextWithLinks(text, highlight, tone)}
       </p>
       {preview && (
-        <div className="mt-2">
+        <div className="mt-2 max-w-[240px] overflow-hidden">
           <LinkPreviewCard preview={preview} tone={tone} />
         </div>
       )}

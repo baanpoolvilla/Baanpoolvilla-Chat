@@ -354,7 +354,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         ) : (
-          <div ref={messagesWrapperRef} className="min-h-full pb-1">
+          <div ref={messagesWrapperRef} className="min-h-full pb-1 w-full overflow-x-hidden">
             {hasMore && (
               <button
                 onClick={loadMore}
