@@ -30,6 +30,8 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneValue, setPhoneValue] = useState('');
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
 
@@ -120,6 +122,19 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
       onContactRenamed?.(conversation.contact.id, response.data.displayName);
     } catch (error) {
       console.error('Failed to rename contact:', error);
+    }
+  };
+
+  const handleSavePhone = async () => {
+    if (!canModifyChat || !conversation) return;
+    try {
+      await api.patch(`/api/contacts/${conversation.contact.id}`, {
+        phone: phoneValue.trim() || null,
+      });
+      await refreshConversation();
+      setEditingPhone(false);
+    } catch (error) {
+      console.error('Failed to save phone:', error);
     }
   };
 
@@ -379,6 +394,57 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
             <p className="text-xs text-gray-400">No notes yet</p>
           )}
         </div>
+      </div>
+
+      {/* Phone */}
+      <div className="border-t border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-semibold uppercase text-gray-400">เบอร์โทร</h4>
+          {canModifyChat && !editingPhone && (
+            <button
+              onClick={() => { setPhoneValue(contact.phone || ''); setEditingPhone(true); }}
+              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {editingPhone ? (
+          <div>
+            <input
+              type="tel"
+              value={phoneValue}
+              onChange={(e) => setPhoneValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSavePhone(); if (e.key === 'Escape') setEditingPhone(false); }}
+              placeholder="เบอร์โทรศัพท์"
+              autoFocus
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+            <div className="mt-1 flex justify-end gap-2">
+              <button
+                onClick={() => setEditingPhone(false)}
+                className="rounded px-3 py-1 text-xs text-gray-500 hover:bg-gray-100"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleSavePhone}
+                className="rounded bg-brand-600 px-3 py-1 text-xs text-white hover:bg-brand-700"
+              >
+                บันทึก
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            {contact.phone ? (
+              <span>{contact.phone}</span>
+            ) : (
+              <span className="text-gray-300 italic text-xs">ยังไม่มีเบอร์โทร</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

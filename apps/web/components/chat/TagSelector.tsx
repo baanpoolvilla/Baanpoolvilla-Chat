@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 import type { Tag, TagCategory } from '@/types';
 import TagBadge from './TagBadge';
@@ -16,6 +16,18 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
   const [categories, setCategories] = useState<TagCategory[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
 
   useEffect(() => {
     const fetchTags = async () => {
@@ -47,7 +59,7 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
   const uncategorized = availableTags.filter((t) => !t.categoryId);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <div className="flex flex-wrap gap-1 mb-2">
         {selectedTags.map((tag) => (
           <TagBadge
@@ -83,7 +95,6 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
                       key={tag.id}
                       onClick={() => {
                         onAdd(tag.id);
-                        setIsOpen(false);
                       }}
                       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-100"
                     >

@@ -24,9 +24,11 @@ export default function TagsPage() {
   const [newTagDesc, setNewTagDesc] = useState('');
   const [creatingTag, setCreatingTag] = useState(false);
 
-  // Edit tag description
+  // Edit tag
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
   const [editingDesc, setEditingDesc] = useState('');
+  const [editingColor, setEditingColor] = useState('#6366f1');
   const [savingDesc, setSavingDesc] = useState(false);
 
   const fetchCategories = () => {
@@ -85,17 +87,20 @@ export default function TagsPage() {
     fetchCategories();
   };
 
-  const startEditDesc = (tag: Tag) => {
+  const startEditTag = (tag: Tag) => {
     setEditingTagId(tag.id);
+    setEditingName(tag.name);
     setEditingDesc(tag.description ?? '');
+    setEditingColor(tag.color);
   };
 
-  const handleSaveDesc = async (tag: Tag) => {
+  const handleSaveTag = async (tag: Tag) => {
+    if (!editingName.trim()) return;
     setSavingDesc(true);
     try {
       await api.put(`/api/tags/${tag.id}`, {
-        name: tag.name,
-        color: tag.color,
+        name: editingName.trim(),
+        color: editingColor,
         description: editingDesc.trim() || null,
         categoryId: tag.categoryId,
       });
@@ -224,20 +229,34 @@ export default function TagsPage() {
                       {tag.name}
                     </span>
 
-                    {/* Description inline edit */}
+                    {/* Tag inline edit */}
                     {editingTagId === tag.id ? (
-                      <div className="flex items-center gap-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 flex-1">
                         <input
                           autoFocus
+                          type="text"
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          maxLength={50}
+                          placeholder="ชื่อแท็ก"
+                          className="w-28 px-3 py-1 text-sm border border-brand-400 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                        />
+                        <input
+                          type="color"
+                          value={editingColor}
+                          onChange={(e) => setEditingColor(e.target.value)}
+                          className="w-8 h-8 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
                           type="text"
                           value={editingDesc}
                           onChange={(e) => setEditingDesc(e.target.value)}
                           maxLength={300}
-                          placeholder="รายละเอียดแท็ก"
-                          className="flex-1 max-w-sm px-3 py-1 text-sm border border-brand-400 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                          placeholder="รายละเอียด (แสดงเมื่อชี้เมาส์)"
+                          className="flex-1 min-w-[120px] px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                         />
                         <button
-                          onClick={() => handleSaveDesc(tag)}
+                          onClick={() => handleSaveTag(tag)}
                           disabled={savingDesc}
                           className="px-3 py-1 text-xs bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50"
                         >
@@ -254,10 +273,11 @@ export default function TagsPage() {
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span
                           className="text-sm text-gray-500 truncate cursor-pointer hover:text-brand-600"
-                          onClick={() => startEditDesc(tag)}
+                          onClick={() => startEditTag(tag)}
+                          title="คลิกเพื่อแก้ไข"
                         >
                           {tag.description || (
-                            <span className="italic text-gray-300">+ เพิ่มรายละเอียด</span>
+                            <span className="italic text-gray-300">+ เพิ่มรายละเอียด / แก้ไขชื่อ</span>
                           )}
                         </span>
                         <button
