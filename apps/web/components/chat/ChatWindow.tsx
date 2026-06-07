@@ -30,6 +30,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesWrapperRef = useRef<HTMLDivElement>(null);
   const shouldJumpToBottomRef = useRef(true);
+  const intendedBottomRef = useRef(true);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,6 +44,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
   useEffect(() => {
     shouldJumpToBottomRef.current = true;
+    intendedBottomRef.current = true;
     setReplyingTo(null);
     setSearchOpen(false);
     setSearchQuery('');
@@ -51,6 +53,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   }, [conversationId, conversation?.reads]);
 
   // ResizeObserver: re-scroll เมื่อ image/link-preview โหลดเสร็จและ content สูงขึ้น
+  // ใช้ intendedBottomRef แทนการเช็คระยะทาง เพราะรูปอาจยังมีความสูง 0 ตอน useLayoutEffect fire
   // dependency รวม isLoading เพราะ messagesWrapperRef จะ null ตอน loading (wrapper ยังไม่ mount)
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -58,8 +61,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     if (!container || !wrapper) return;
 
     const observer = new ResizeObserver(() => {
-      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-      if (distanceFromBottom < 300) {
+      if (intendedBottomRef.current) {
         container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
       }
     });
@@ -160,12 +162,18 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    // Only scroll if content overflows — when it fits, messages naturally appear at top
-    if (container.scrollHeight > container.clientHeight) {
-      const behavior: ScrollBehavior = shouldJumpToBottomRef.current ? 'auto' : 'smooth';
-      container.scrollTo({ top: container.scrollHeight, behavior });
+    if (shouldJumpToBottomRef.current) {
+      // Initial load for this conversation — jump unconditionally (images may still be 0-height)
+      // intendedBottomRef stays true so ResizeObserver will re-scroll as images load
+      container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+      shouldJumpToBottomRef.current = false;
+    } else {
+      // New incoming message — only scroll if user is near the bottom
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 300) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
     }
-    shouldJumpToBottomRef.current = false;
   }, [conversationId, messages.length]);
 
   useEffect(() => {
@@ -178,9 +186,12 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
   const handleScroll = () => {
     const el = scrollContainerRef.current;
-    if (el && el.scrollTop === 0 && hasMore && !isLoading) {
+    if (!el) return;
+    if (el.scrollTop === 0 && hasMore && !isLoading) {
       loadMore();
     }
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    intendedBottomRef.current = distanceFromBottom < 100;
   };
 
   const handleSend = async (content: string, contentType?: string, mediaUrl?: string, replyToMessageId?: string) => {
