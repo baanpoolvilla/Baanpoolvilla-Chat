@@ -187,11 +187,13 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const handleScroll = () => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    if (el.scrollTop === 0 && hasMore && !isLoading) {
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // Update intent before loadMore check — if content fits in view (images not loaded yet),
+    // distanceFromBottom=0 so intendedBottom=true and we won't accidentally trigger loadMore
+    intendedBottomRef.current = distanceFromBottom < 100;
+    if (el.scrollTop === 0 && hasMore && !isLoading && !intendedBottomRef.current) {
       loadMore();
     }
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    intendedBottomRef.current = distanceFromBottom < 100;
   };
 
   const handleSend = async (content: string, contentType?: string, mediaUrl?: string, replyToMessageId?: string) => {
