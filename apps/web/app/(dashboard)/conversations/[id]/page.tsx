@@ -139,6 +139,7 @@ export default function ConversationDetailPage() {
           onToggleInfo={handleToggleInfo}
           contactNameOverride={contactNameOverride}
           onCloseChat={() => router.push('/conversations')}
+          onRefreshConversation={() => refreshConversation(selectedId)}
         />
       </div>
 

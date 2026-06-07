@@ -287,13 +287,16 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
             selectedTagIds={(conversation.tags || []).map((t) => t.tagId)}
             onAdd={handleAddTag}
             onRemove={handleRemoveTag}
+            excludeCategoryName="สถานะแชท"
           />
         ) : (
           <div className="flex flex-wrap gap-1">
-            {(conversation.tags || []).length > 0 ? (
-              conversation.tags?.map((item) => (
-                <TagBadge key={item.tagId} name={item.tag.name} color={item.tag.color} description={item.tag.description} />
-              ))
+            {(conversation.tags || []).filter((item) => item.tag.category?.name !== 'สถานะแชท').length > 0 ? (
+              conversation.tags
+                ?.filter((item) => item.tag.category?.name !== 'สถานะแชท')
+                .map((item) => (
+                  <TagBadge key={item.tagId} name={item.tag.name} color={item.tag.color} description={item.tag.description} />
+                ))
             ) : (
               <p className="text-xs text-gray-400">No tags assigned</p>
             )}

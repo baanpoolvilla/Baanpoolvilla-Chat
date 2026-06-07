@@ -7,7 +7,7 @@ import MessageBubble from './MessageBubble';
 import MessageContextMenu from './MessageContextMenu';
 import MessageInput from './MessageInput';
 import { format } from 'date-fns';
-import type { Conversation, ConversationRead, Message } from '@/types';
+import type { Conversation, ConversationRead, Message, Tag } from '@/types';
 import { ChevronLeft, ChevronUp, ChevronDown, Info, Loader2, Pin, Search, X } from 'lucide-react';
 import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
@@ -21,9 +21,10 @@ interface ChatWindowProps {
   onToggleInfo?: () => void;
   contactNameOverride?: string;
   onCloseChat?: () => void;
+  onRefreshConversation?: () => void;
 }
 
-export default function ChatWindow({ conversationId, conversation, isConversationLoading = false, onToggleInfo, contactNameOverride, onCloseChat }: ChatWindowProps) {
+export default function ChatWindow({ conversationId, conversation, isConversationLoading = false, onToggleInfo, contactNameOverride, onCloseChat, onRefreshConversation }: ChatWindowProps) {
   const { messages, isLoading, hasMore, loadMore, sendMessage } = useMessages(conversationId);
   const { on } = useSocket();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -42,6 +43,34 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const [pinnedExpanded, setPinnedExpanded] = useState(false);
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
+  const [statusTags, setStatusTags] = useState<Tag[]>([]);
+
+  useEffect(() => {
+    api.get('/api/tags').then((r) => {
+      const tags: Tag[] = Array.isArray(r.data) ? r.data : (r.data.data || []);
+      setStatusTags(tags.filter((t) => t.category?.name === 'สถานะแชท'));
+    }).catch(() => {});
+  }, []);
+
+  const appliedStatusTagIds = useMemo(
+    () => new Set((conversation?.tags ?? []).filter((ct) => ct.tag.category?.name === 'สถานะแชท').map((ct) => ct.tagId)),
+    [conversation?.tags],
+  );
+
+  const handleToggleStatusTag = useCallback(async (tag: Tag) => {
+    if (!canModifyChat) return;
+    try {
+      if (appliedStatusTagIds.has(tag.id)) {
+        await api.delete(`/api/conversations/${conversationId}/tags/${tag.id}`);
+      } else {
+        for (const tid of appliedStatusTagIds) {
+          await api.delete(`/api/conversations/${conversationId}/tags/${tid}`);
+        }
+        await api.post(`/api/conversations/${conversationId}/tags`, { tagId: tag.id });
+      }
+      onRefreshConversation?.();
+    } catch { /* ignore */ }
+  }, [canModifyChat, conversationId, appliedStatusTagIds, onRefreshConversation]);
 
   useEffect(() => {
     shouldJumpToBottomRef.current = true;
@@ -259,6 +288,25 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
             {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}
           </div>
         </div>
+        {statusTags.length > 0 && (
+          <div className="flex items-center gap-1">
+            {statusTags.map((tag) => {
+              const active = appliedStatusTagIds.has(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => handleToggleStatusTag(tag)}
+                  disabled={!canModifyChat}
+                  className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60"
+                  style={active ? { backgroundColor: tag.color, color: '#fff' } : { backgroundColor: '#f3f4f6', color: '#374151' }}
+                  title={tag.name}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="flex items-center gap-1">
           <button
             onClick={openSearch}

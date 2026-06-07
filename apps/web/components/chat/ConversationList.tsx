@@ -166,6 +166,34 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
           )}
         </div>
 
+        {/* Status tag quick filters (always visible) */}
+        {allTags.filter((t) => t.category?.name === 'สถานะแชท').length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {allTags
+              .filter((t) => t.category?.name === 'สถานะแชท')
+              .map((tag) => {
+                const active = selectedTagIds.includes(tag.id);
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() =>
+                      setSelectedTagIds((prev) =>
+                        active ? prev.filter((id) => id !== tag.id) : [...prev, tag.id]
+                      )
+                    }
+                    className={cn(
+                      'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+                      active ? 'text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                    )}
+                    style={active ? { backgroundColor: tag.color, borderColor: tag.color } : undefined}
+                  >
+                    {tag.name}
+                  </button>
+                );
+              })}
+          </div>
+        )}
+
         {/* Filters */}
         {showFilters && (
           <div className="mt-3 space-y-2">
@@ -206,11 +234,11 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
                 </option>
               ))}
             </select>
-            {allTags.length > 0 && (
+            {allTags.filter((t) => t.category?.name !== 'สถานะแชท').length > 0 && (
               <div>
                 <p className="mb-1 text-xs font-medium text-gray-500">แท็ก</p>
                 <div className="flex flex-wrap gap-1">
-                  {allTags.map((tag) => {
+                  {allTags.filter((t) => t.category?.name !== 'สถานะแชท').map((tag) => {
                     const active = selectedTagIds.includes(tag.id);
                     return (
                       <button

@@ -10,9 +10,10 @@ interface TagSelectorProps {
   selectedTagIds: string[];
   onAdd: (tagId: string) => void;
   onRemove: (tagId: string) => void;
+  excludeCategoryName?: string;
 }
 
-export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSelectorProps) {
+export default function TagSelector({ selectedTagIds, onAdd, onRemove, excludeCategoryName }: TagSelectorProps) {
   const [categories, setCategories] = useState<TagCategory[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -49,8 +50,11 @@ export default function TagSelector({ selectedTagIds, onAdd, onRemove }: TagSele
     fetchTags();
   }, []);
 
-  const selectedTags = allTags.filter((t) => selectedTagIds.includes(t.id));
-  const availableTags = allTags.filter((t) => !selectedTagIds.includes(t.id));
+  const displayTags = excludeCategoryName
+    ? allTags.filter((t) => t.category?.name !== excludeCategoryName)
+    : allTags;
+  const selectedTags = displayTags.filter((t) => selectedTagIds.includes(t.id));
+  const availableTags = displayTags.filter((t) => !selectedTagIds.includes(t.id));
 
   const groupedTags = categories.map((cat) => ({
     ...cat,
