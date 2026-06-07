@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, KeyboardEvent, useEffect, ChangeEvent } from 'react';
 import { Send, Paperclip, MessageSquarePlus, Sticker, Star, Loader2, X } from 'lucide-react';
-// Loader2 used for isSending spinner on send button
 import QuickReplyPicker from './QuickReplyPicker';
 import api from '@/lib/api';
 import type { Message } from '@/types';
@@ -64,7 +63,6 @@ const LINE_STICKERS = [
   { packageId: '4', stickerId: '273' },
   { packageId: '4', stickerId: '274' },
   { packageId: '4', stickerId: '275' },
-  // OA Sticker Pack 1 (11537)
   { packageId: '11537', stickerId: '52002734' },
   { packageId: '11537', stickerId: '52002735' },
   { packageId: '11537', stickerId: '52002736' },
@@ -73,7 +71,6 @@ const LINE_STICKERS = [
   { packageId: '11537', stickerId: '52002739' },
   { packageId: '11537', stickerId: '52002740' },
   { packageId: '11537', stickerId: '52002741' },
-  // OA Sticker Pack 2 (11538)
   { packageId: '11538', stickerId: '51626494' },
   { packageId: '11538', stickerId: '51626495' },
   { packageId: '11538', stickerId: '51626496' },
@@ -82,7 +79,6 @@ const LINE_STICKERS = [
   { packageId: '11538', stickerId: '51626499' },
   { packageId: '11538', stickerId: '51626500' },
   { packageId: '11538', stickerId: '51626501' },
-  // OA Sticker Pack 3 (11539)
   { packageId: '11539', stickerId: '52114110' },
   { packageId: '11539', stickerId: '52114111' },
   { packageId: '11539', stickerId: '52114112' },
@@ -94,6 +90,13 @@ const LINE_STICKERS = [
 ];
 
 const STICKER_FAVORITES_KEY = 'lineStickerFavorites';
+const MAX_ATTACHMENTS = 10;
+
+interface PendingAttachment {
+  file: File;
+  previewUrl: string;
+  contentType: 'IMAGE' | 'VIDEO' | 'FILE';
+}
 
 export default function MessageInput({ onSend, disabled, platform, replyingTo, onCancelReply, customerName }: MessageInputProps) {
   const [content, setContent] = useState('');
@@ -101,13 +104,9 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [favoriteStickers, setFavoriteStickers] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const isSendingRef = useRef(false); // synchronous guard – React state update is async
+  const isSendingRef = useRef(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [pendingAttachment, setPendingAttachment] = useState<{
-    file: File;
-    previewUrl: string;
-    contentType: 'IMAGE' | 'VIDEO' | 'FILE';
-  } | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const quickReplyBtnRef = useRef<HTMLDivElement>(null);
@@ -124,66 +123,100 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
         setFavoriteStickers(parsed.filter((v) => typeof v === 'string'));
       }
     } catch {
-      // ignore invalid local storage
+      // ignore
     }
   }, []);
 
+  // Revoke all object URLs on unmount
   useEffect(() => {
     return () => {
-      if (pendingAttachment) {
-        URL.revokeObjectURL(pendingAttachment.previewUrl);
-      }
+      setPendingAttachments((prev) => {
+        prev.forEach((att) => { if (att.previewUrl) URL.revokeObjectURL(att.previewUrl); });
+        return prev;
+      });
     };
-  }, [pendingAttachment]);
+  }, []);
 
-  const clearAttachment = () => {
-    setPendingAttachment((current) => {
-      if (current) URL.revokeObjectURL(current.previewUrl);
-      return null;
+  const removeAttachment = useCallback((index: number) => {
+    setPendingAttachments((prev) => {
+      const att = prev[index];
+      if (att?.previewUrl) URL.revokeObjectURL(att.previewUrl);
+      return prev.filter((_, i) => i !== index);
     });
     setSendError(null);
-  };
+  }, []);
+
+  const clearAllAttachments = useCallback(() => {
+    setPendingAttachments((prev) => {
+      prev.forEach((att) => { if (att.previewUrl) URL.revokeObjectURL(att.previewUrl); });
+      return [];
+    });
+    setSendError(null);
+  }, []);
+
+  const addFiles = useCallback((files: File[]) => {
+    const newAttachments: PendingAttachment[] = [];
+    for (const file of files) {
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && file.size > 25 * 1024 * 1024) {
+        setSendError('ไฟล์ใหญ่เกิน 25 MB');
+        continue;
+      }
+      const contentType: PendingAttachment['contentType'] = file.type.startsWith('video/')
+        ? 'VIDEO'
+        : file.type.startsWith('image/')
+        ? 'IMAGE'
+        : 'FILE';
+      newAttachments.push({
+        file,
+        previewUrl: file.type.startsWith('image/') || file.type.startsWith('video/') ? URL.createObjectURL(file) : '',
+        contentType,
+      });
+    }
+    setPendingAttachments((prev) => {
+      const combined = [...prev, ...newAttachments];
+      // Revoke URLs of excess entries
+      if (combined.length > MAX_ATTACHMENTS) {
+        combined.slice(MAX_ATTACHMENTS).forEach((att) => { if (att.previewUrl) URL.revokeObjectURL(att.previewUrl); });
+        return combined.slice(0, MAX_ATTACHMENTS);
+      }
+      return combined;
+    });
+  }, []);
 
   const handleSend = useCallback(async () => {
     const trimmed = content.trim();
-    if (disabled || isSendingRef.current || (!trimmed && !pendingAttachment)) return;
+    if (disabled || isSendingRef.current || (!trimmed && pendingAttachments.length === 0)) return;
 
-    isSendingRef.current = true; // set synchronously before any await
+    isSendingRef.current = true;
     setSendError(null);
     setIsSending(true);
     try {
-      if (pendingAttachment) {
-        // Upload file now (at send time) as base64 JSON
-        let mediaUrl: string;
-        try {
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const result = reader.result as string;
-              // Strip the data URL prefix (data:image/png;base64,...)
-              resolve(result.split(',')[1] || '');
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(pendingAttachment.file);
-          });
-          const uploadRes = await api.post('/api/media/upload', {
-            data: base64,
-            mimeType: pendingAttachment.file.type,
-          });
-          mediaUrl = uploadRes.data?.data?.url;
-          if (!mediaUrl) throw new Error('No URL returned from upload');
-        } catch (uploadErr: unknown) {
-          const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
-          setSendError(`ไม่สามารถอัปโหลดไฟล์: ${msg}`);
-          return;
+      if (pendingAttachments.length > 0) {
+        for (let i = 0; i < pendingAttachments.length; i++) {
+          const att = pendingAttachments[i];
+          let mediaUrl: string;
+          try {
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
+              reader.onerror = reject;
+              reader.readAsDataURL(att.file);
+            });
+            const uploadRes = await api.post('/api/media/upload', { data: base64, mimeType: att.file.type });
+            mediaUrl = uploadRes.data?.data?.url;
+            if (!mediaUrl) throw new Error('No URL returned from upload');
+          } catch (uploadErr: unknown) {
+            const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
+            setSendError(`ไม่สามารถอัปโหลดรูปที่ ${i + 1}: ${msg}`);
+            return;
+          }
+          // First item: use text as caption (if any) and attach replyTo
+          const caption = i === 0 && trimmed
+            ? trimmed
+            : att.contentType === 'VIDEO' ? '[Video]' : att.contentType === 'FILE' ? att.file.name : '[Image]';
+          await onSend(caption, att.contentType, mediaUrl, i === 0 ? replyingTo?.id : undefined);
         }
-        await onSend(
-          trimmed || (pendingAttachment.contentType === 'VIDEO' ? '[Video]' : pendingAttachment.contentType === 'FILE' ? pendingAttachment.file.name : '[Image]'),
-          pendingAttachment.contentType,
-          mediaUrl,
-          replyingTo?.id,
-        );
-        clearAttachment();
+        clearAllAttachments();
       } else {
         await onSend(trimmed, undefined, undefined, replyingTo?.id);
       }
@@ -200,7 +233,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
       isSendingRef.current = false;
       setIsSending(false);
     }
-  }, [content, disabled, isSending, onSend, pendingAttachment, replyingTo]);
+  }, [content, disabled, onSend, pendingAttachments, replyingTo, clearAllAttachments]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -212,22 +245,18 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
+    const imageFiles: File[] = [];
     for (const item of Array.from(items)) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
-        if (!file) continue;
-        e.preventDefault();
-        if (pendingAttachment) URL.revokeObjectURL(pendingAttachment.previewUrl);
-        setSendError(null);
-        setPendingAttachment({
-          file,
-          previewUrl: URL.createObjectURL(file),
-          contentType: 'IMAGE',
-        });
-        break;
+        if (file) imageFiles.push(file);
       }
     }
-  }, [pendingAttachment]);
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      addFiles(imageFiles);
+    }
+  }, [addFiles]);
 
   const handleInput = () => {
     if (textareaRef.current) {
@@ -239,11 +268,9 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
   const handleSelectQuickReply = (text: string) => {
     const nextContent = text.slice(0, maxChars);
     if (!nextContent.trim() || disabled) return;
-
     setSendError(null);
     setContent(nextContent);
     setShowQuickReplies(false);
-
     requestAnimationFrame(() => {
       if (!textareaRef.current) return;
       textareaRef.current.focus();
@@ -260,32 +287,8 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
   };
 
   const handleAttachmentChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && file.size > 25 * 1024 * 1024) {
-      setSendError('ไฟล์ใหญ่เกิน 25 MB');
-      e.target.value = '';
-      return;
-    }
-
-    if (pendingAttachment) {
-      URL.revokeObjectURL(pendingAttachment.previewUrl);
-    }
-
-    const contentType = file.type.startsWith('video/')
-      ? 'VIDEO'
-      : file.type.startsWith('image/')
-      ? 'IMAGE'
-      : 'FILE';
-
-    setSendError(null);
-    setPendingAttachment({
-      file,
-      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
-      contentType,
-    });
-
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) addFiles(files);
     e.target.value = '';
   };
 
@@ -341,8 +344,8 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
         <button
           onClick={handleAttachmentPick}
           disabled={disabled || isSending}
-          className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          title="Attach file"
+          className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+          title="แนบรูปภาพ"
         >
           <Paperclip className="h-5 w-5" />
         </button>
@@ -350,6 +353,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
           ref={fileInputRef}
           type="file"
           accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
+          multiple
           className="hidden"
           onChange={handleAttachmentChange}
         />
@@ -433,7 +437,8 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
           </div>
         )}
 
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
+          {/* Reply preview */}
           {replyingTo && (
             <div className="mb-2 rounded-xl border border-brand-100 bg-brand-50/70 p-2">
               <div className="flex items-start gap-3">
@@ -459,46 +464,40 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
             </div>
           )}
 
-          {pendingAttachment && (
-            <div className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2">
-              <div className="flex items-start gap-3">
-                <div className="h-16 w-16 overflow-hidden rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                  {pendingAttachment.contentType === 'IMAGE' ? (
-                    <img
-                      src={pendingAttachment.previewUrl}
-                      alt={pendingAttachment.file.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : pendingAttachment.contentType === 'VIDEO' ? (
-                    <video
-                      src={pendingAttachment.previewUrl}
-                      className="h-full w-full object-cover"
-                      muted
-                    />
-                  ) : (
-                    <span className="text-2xl">📎</span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-gray-700">{pendingAttachment.file.name}</p>
-                  <p className="text-[11px] text-gray-400">
-                    {pendingAttachment.contentType === 'VIDEO' ? 'วิดีโอพร้อมส่ง' : pendingAttachment.contentType === 'FILE' ? 'ไฟล์พร้อมส่ง' : 'รูปภาพพร้อมส่ง'}
-                  </p>
-                  {sendError && (
-                    <p className="mt-1 text-[11px] font-medium text-red-500">{sendError}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={clearAttachment}
-                  className="rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
-                  title="Remove attachment"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+          {/* Attachment thumbnails — compact row, no filename */}
+          {pendingAttachments.length > 0 && (
+            <div className="mb-2">
+              <div className="flex flex-wrap gap-1.5">
+                {pendingAttachments.map((att, i) => (
+                  <div key={i} className="relative h-14 w-14 flex-shrink-0">
+                    <div className="h-full w-full overflow-hidden rounded-lg bg-gray-100">
+                      {att.contentType === 'IMAGE' ? (
+                        <img src={att.previewUrl} alt="" className="h-full w-full object-cover" />
+                      ) : att.contentType === 'VIDEO' ? (
+                        <video src={att.previewUrl} className="h-full w-full object-cover" muted />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-gray-400">
+                          <span className="text-xl">📎</span>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(i)}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gray-700/80 text-white shadow"
+                      title="ลบ"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
               </div>
+              {sendError && (
+                <p className="mt-1 text-xs font-medium text-red-500">{sendError}</p>
+              )}
             </div>
           )}
+
           <textarea
             ref={textareaRef}
             value={content}
@@ -511,16 +510,21 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
             rows={1}
             className="min-h-[44px] w-full resize-none rounded-2xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
           />
+
+          {/* Error for text-only send */}
+          {sendError && pendingAttachments.length === 0 && (
+            <p className="mt-1 text-xs font-medium text-red-500">{sendError}</p>
+          )}
         </div>
 
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center gap-1">
           <span className="hidden text-[10px] text-gray-400 sm:inline">
             {content.length}/{maxChars}
           </span>
           <button
             onClick={handleSend}
-            disabled={(!content.trim() && !pendingAttachment) || disabled || isSending}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={(!content.trim() && pendingAttachments.length === 0) || disabled || isSending}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>
@@ -529,4 +533,3 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
     </div>
   );
 }
-
