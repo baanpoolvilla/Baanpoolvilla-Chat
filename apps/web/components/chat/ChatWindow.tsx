@@ -258,38 +258,70 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,#e4efd9_0%,#f7faf5_100%)]">
       {/* Header */}
-      <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-gray-200 bg-white/95 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)] shadow-sm backdrop-blur md:px-6 md:py-3">
-        {onCloseChat && (
-          <button
-            onClick={onCloseChat}
-            className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 md:hidden"
-            title="กลับไปหน้ารายการแชท"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        )}
-
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-sm font-medium md:h-10 md:w-10">
-          {conversation?.contact?.avatarUrl ? (
-            <img
-              src={conversation.contact.avatarUrl}
-              alt=""
-              className="h-9 w-9 rounded-full object-cover md:h-10 md:w-10"
-            />
-          ) : (
-            (conversation?.contact?.displayName || '?').charAt(0).toUpperCase()
+      <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur">
+        {/* Main row */}
+        <div className="flex items-center gap-3 px-3 pb-2.5 pt-[calc(env(safe-area-inset-top)+0.85rem)] md:px-6 md:py-3">
+          {onCloseChat && (
+            <button
+              onClick={onCloseChat}
+              className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 md:hidden"
+              title="กลับไปหน้ารายการแชท"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
           )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold text-gray-900">
-            {contactNameOverride ?? conversation?.contact?.displayName ?? (isConversationLoading ? 'Loading...' : 'Unknown contact')}
-          </h3>
-          <div className="mt-0.5 flex items-center gap-2">
-            {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}
+
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-sm font-medium md:h-10 md:w-10">
+            {conversation?.contact?.avatarUrl ? (
+              <img
+                src={conversation.contact.avatarUrl}
+                alt=""
+                className="h-9 w-9 rounded-full object-cover md:h-10 md:w-10"
+              />
+            ) : (
+              (conversation?.contact?.displayName || '?').charAt(0).toUpperCase()
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-semibold text-gray-900">
+              {contactNameOverride ?? conversation?.contact?.displayName ?? (isConversationLoading ? 'Loading...' : 'Unknown contact')}
+            </h3>
+            <div className="mt-0.5 flex items-center gap-2">
+              {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={openSearch}
+              className={`rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 ${searchOpen ? 'bg-gray-100 text-gray-700' : ''}`}
+              title="ค้นหาข้อความในแชท"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+            {onCloseChat && (
+              <button
+                onClick={onCloseChat}
+                className="hidden rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 md:inline-flex"
+                title="ปิดแชท"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+            {onToggleInfo && (
+              <button
+                onClick={onToggleInfo}
+                className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                title="ข้อมูลการสนทนา"
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Status tag strip */}
         {statusTags.length > 0 && (
-          <div className="flex items-center gap-1">
+          <div className="flex gap-2 px-3 pb-2.5 md:px-6">
             {statusTags.map((tag) => {
               const active = appliedStatusTagIds.has(tag.id);
               return (
@@ -297,9 +329,12 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                   key={tag.id}
                   onClick={() => handleToggleStatusTag(tag)}
                   disabled={!canModifyChat}
-                  className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60"
-                  style={active ? { backgroundColor: tag.color, color: '#fff' } : { backgroundColor: '#f3f4f6', color: '#374151' }}
-                  title={tag.name}
+                  className="flex-1 rounded-full py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 disabled:opacity-50"
+                  style={
+                    active
+                      ? { backgroundColor: tag.color, color: '#fff', boxShadow: `0 2px 8px ${tag.color}66` }
+                      : { backgroundColor: '#f3f4f6', color: '#6b7280' }
+                  }
                 >
                   {tag.name}
                 </button>
@@ -307,33 +342,6 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
             })}
           </div>
         )}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={openSearch}
-            className={`rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 ${searchOpen ? 'bg-gray-100 text-gray-700' : ''}`}
-            title="ค้นหาข้อความในแชท"
-          >
-            <Search className="h-4 w-4" />
-          </button>
-          {onCloseChat && (
-            <button
-              onClick={onCloseChat}
-              className="hidden rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 md:inline-flex"
-              title="ปิดแชท"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-          {onToggleInfo && (
-            <button
-              onClick={onToggleInfo}
-              className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-              title="ข้อมูลการสนทนา"
-            >
-              <Info className="h-4 w-4" />
-            </button>
-          )}
-        </div>
       </div>
 
       {/* In-chat search bar */}
