@@ -163,10 +163,10 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     if (!container) return;
 
     if (shouldJumpToBottomRef.current) {
-      // Initial load for this conversation — jump unconditionally (images may still be 0-height)
-      // intendedBottomRef stays true so ResizeObserver will re-scroll as images load
+      // Initial load — attempt scroll immediately (before paint, no flash).
+      // Images may still be 0-height so scrollHeight can be wrong.
+      // shouldJumpToBottomRef stays TRUE so the useEffect retry below can re-scroll.
       container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
-      shouldJumpToBottomRef.current = false;
     } else {
       // New incoming message — only scroll if user is near the bottom
       const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
@@ -174,6 +174,28 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
         container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
       }
     }
+  }, [conversationId, messages.length]);
+
+  // Retry scroll after images finish loading (critical for mobile / slow networks).
+  // useLayoutEffect may have used a wrong scrollHeight when images were still 0-height.
+  useEffect(() => {
+    if (messages.length === 0) return;
+    if (!shouldJumpToBottomRef.current) return;
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const retry = () => {
+      if (intendedBottomRef.current) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+      }
+      shouldJumpToBottomRef.current = false;
+    };
+
+    const t1 = setTimeout(retry, 200);
+    const t2 = setTimeout(retry, 700);
+
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [conversationId, messages.length]);
 
   useEffect(() => {
