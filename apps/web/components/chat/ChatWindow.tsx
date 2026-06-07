@@ -169,6 +169,8 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
   useLayoutEffect(() => {
     if (messages.length === 0) return;
+    // Skip stale messages from the previous conversation that haven't been reset yet.
+    if (messages[0].conversationId !== conversationId) return;
     if (shouldJumpToBottomRef.current) {
       // Initial load — scroll immediately (before paint).
       // shouldJumpToBottomRef stays TRUE so useEffect retries below handle slow image loading.
@@ -187,11 +189,13 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   // Retry scroll for mobile / slow networks where images load after initial useLayoutEffect.
   useEffect(() => {
     if (messages.length === 0 || !shouldJumpToBottomRef.current) return;
+    // Skip stale messages from the previous conversation that haven't been reset yet.
+    if (messages[0].conversationId !== conversationId) return;
     const t1 = setTimeout(() => { if (intendedBottomRef.current) scrollToBottom(); }, 200);
     const t2 = setTimeout(() => {
       if (intendedBottomRef.current) scrollToBottom();
       shouldJumpToBottomRef.current = false;
-    }, 700);
+    }, 1000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [conversationId, messages.length, scrollToBottom]);
 
