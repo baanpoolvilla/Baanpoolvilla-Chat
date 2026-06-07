@@ -53,13 +53,13 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     setReads(conversation?.reads || []);
   }, [conversationId, conversation?.reads]);
 
-  // scrollToBottom: ตั้ง flag ก่อน scroll เพื่อให้ handleScroll รู้ว่าเป็น programmatic scroll
-  // ป้องกัน mobile scroll event จาก scrollTo() ทำให้ intendedBottomRef เปลี่ยนผิดพลาด
+  // scrollToBottom: ใช้ scrollIntoView บน messagesEndRef แทน scrollTo(scrollHeight)
+  // เพื่อให้ scroll ตามตำแหน่ง element จริง ไม่ผิดพลาดเมื่อรูปภาพโหลดทีหลัง
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
+    const end = messagesEndRef.current;
+    if (!end) return;
     isProgrammaticScrollRef.current = true;
-    container.scrollTo({ top: container.scrollHeight, behavior });
+    end.scrollIntoView({ behavior, block: 'end', inline: 'nearest' });
     requestAnimationFrame(() => { isProgrammaticScrollRef.current = false; });
   }, []);
 
