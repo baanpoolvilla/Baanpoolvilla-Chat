@@ -51,6 +51,10 @@ export function useMessages(conversationId: string | null) {
   }, [conversationId]);
 
   useEffect(() => {
+    setMessages([]);
+    setHasMore(true);
+    setPage(1);
+
     if (conversationId) {
       fetchMessages(1);
       joinConversation(conversationId);
