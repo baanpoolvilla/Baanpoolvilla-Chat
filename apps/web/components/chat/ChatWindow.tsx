@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import { useSocket } from '@/hooks/useSocket';
 import MessageBubble from './MessageBubble';
@@ -31,6 +31,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const messagesWrapperRef = useRef<HTMLDivElement>(null);
   const shouldJumpToBottomRef = useRef(true);
   const intendedBottomRef = useRef(true);
+  const isProgrammaticScrollRef = useRef(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,8 +53,17 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     setReads(conversation?.reads || []);
   }, [conversationId, conversation?.reads]);
 
+  // scrollToBottom: ตั้ง flag ก่อน scroll เพื่อให้ handleScroll รู้ว่าเป็น programmatic scroll
+  // ป้องกัน mobile scroll event จาก scrollTo() ทำให้ intendedBottomRef เปลี่ยนผิดพลาด
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    isProgrammaticScrollRef.current = true;
+    container.scrollTo({ top: container.scrollHeight, behavior });
+    requestAnimationFrame(() => { isProgrammaticScrollRef.current = false; });
+  }, []);
+
   // ResizeObserver: re-scroll เมื่อ image/link-preview โหลดเสร็จและ content สูงขึ้น
-  // ใช้ intendedBottomRef แทนการเช็คระยะทาง เพราะรูปอาจยังมีความสูง 0 ตอน useLayoutEffect fire
   // dependency รวม isLoading เพราะ messagesWrapperRef จะ null ตอน loading (wrapper ยังไม่ mount)
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -62,13 +72,13 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
     const observer = new ResizeObserver(() => {
       if (intendedBottomRef.current) {
-        container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+        scrollToBottom();
       }
     });
 
     observer.observe(wrapper);
     return () => observer.disconnect();
-  }, [conversationId, isLoading]);
+  }, [conversationId, isLoading, scrollToBottom]);
 
   // Real-time: อัปเดตรายการผู้อ่านเมื่อ admin อื่น join ห้องเดียวกัน
   useEffect(() => {
@@ -159,44 +169,31 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
   useLayoutEffect(() => {
     if (messages.length === 0) return;
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
     if (shouldJumpToBottomRef.current) {
-      // Initial load — attempt scroll immediately (before paint, no flash).
-      // Images may still be 0-height so scrollHeight can be wrong.
-      // shouldJumpToBottomRef stays TRUE so the useEffect retry below can re-scroll.
-      container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+      // Initial load — scroll immediately (before paint).
+      // shouldJumpToBottomRef stays TRUE so useEffect retries below handle slow image loading.
+      scrollToBottom('auto');
     } else {
       // New incoming message — only scroll if user is near the bottom
+      const container = scrollContainerRef.current;
+      if (!container) return;
       const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
       if (distanceFromBottom < 300) {
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        scrollToBottom('smooth');
       }
     }
-  }, [conversationId, messages.length]);
+  }, [conversationId, messages.length, scrollToBottom]);
 
-  // Retry scroll after images finish loading (critical for mobile / slow networks).
-  // useLayoutEffect may have used a wrong scrollHeight when images were still 0-height.
+  // Retry scroll for mobile / slow networks where images load after initial useLayoutEffect.
   useEffect(() => {
-    if (messages.length === 0) return;
-    if (!shouldJumpToBottomRef.current) return;
-
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const retry = () => {
-      if (intendedBottomRef.current) {
-        container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
-      }
+    if (messages.length === 0 || !shouldJumpToBottomRef.current) return;
+    const t1 = setTimeout(() => { if (intendedBottomRef.current) scrollToBottom(); }, 200);
+    const t2 = setTimeout(() => {
+      if (intendedBottomRef.current) scrollToBottom();
       shouldJumpToBottomRef.current = false;
-    };
-
-    const t1 = setTimeout(retry, 200);
-    const t2 = setTimeout(retry, 700);
-
+    }, 700);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [conversationId, messages.length]);
+  }, [conversationId, messages.length, scrollToBottom]);
 
   useEffect(() => {
     if (!canModifyChat) {
@@ -207,13 +204,14 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   }, [canModifyChat, conversationId]);
 
   const handleScroll = () => {
+    // Ignore scroll events fired by our own scrollToBottom() calls —
+    // only user-initiated scrolls should update intendedBottomRef.
+    if (isProgrammaticScrollRef.current) return;
     const el = scrollContainerRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    // Update intent before loadMore check — if content fits in view (images not loaded yet),
-    // distanceFromBottom=0 so intendedBottom=true and we won't accidentally trigger loadMore
     intendedBottomRef.current = distanceFromBottom < 100;
-    if (el.scrollTop === 0 && hasMore && !isLoading && !intendedBottomRef.current) {
+    if (el.scrollTop < 50 && hasMore && !isLoading && !intendedBottomRef.current) {
       loadMore();
     }
   };
