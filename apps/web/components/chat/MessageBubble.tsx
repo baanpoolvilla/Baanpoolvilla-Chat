@@ -527,8 +527,8 @@ function renderContent(
               src={message.mediaUrl}
               alt="Image"
               className="max-w-full rounded-xl mt-1 cursor-pointer hover:opacity-90 transition-opacity"
-              style={{ maxHeight: 280 }}
-              loading="lazy"
+              style={{ maxHeight: 280, minHeight: 80 }}
+              loading="eager"
               decoding="async"
               onClick={() => onImageClick(message.mediaUrl!)}
             />
