@@ -217,7 +217,7 @@ export class MessageService {
               platform: incoming.platform,
               channelId: incoming.channelId,
               status: 'OPEN',
-              isBot: true,
+              isBot: false,
               lastMessage: incoming.content.substring(0, 200),
               lastMsgAt: new Date(),
               unreadCount: 1,
@@ -278,7 +278,7 @@ export class MessageService {
       }
 
       if (result.conversation.isBot) {
-        AiBotService.reply(result.conversation.id, incoming.content).catch((err) => {
+        AiBotService.reply(result.conversation.id, incoming.content, result.contact.displayName, incoming.platform).catch((err) => {
           logger.error('AI bot reply failed', { error: err.message, conversationId: result.conversation.id });
         });
       } else {

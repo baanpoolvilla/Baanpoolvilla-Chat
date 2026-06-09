@@ -140,6 +140,7 @@ export default function ConversationDetailPage() {
           contactNameOverride={contactNameOverride}
           onCloseChat={() => router.push('/conversations')}
           onRefreshConversation={() => refreshConversation(selectedId)}
+          onBotToggle={(isBot) => setConversation((c) => (c ? { ...c, isBot } : null))}
         />
       </div>
 

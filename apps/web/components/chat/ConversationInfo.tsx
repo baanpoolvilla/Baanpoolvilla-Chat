@@ -12,6 +12,7 @@ import { formatTimeAgo } from '@/lib/utils';
 import PlatformBadge from '@/components/common/PlatformBadge';
 import { useAuth } from '@/hooks/useAuth';
 import { canWriteChat } from '@/lib/permissions';
+import BotToggle from './BotToggle';
 
 interface ConversationInfoProps {
   conversationId: string;
@@ -278,6 +279,21 @@ export default function ConversationInfo({ conversationId, conversation, isLoadi
           )}
         </div>
       </div>
+
+      {/* Bot / Admin Mode */}
+      {canModifyChat && (
+        <div className="border-b border-gray-200 p-4">
+          <h4 className="mb-2 text-xs font-semibold uppercase text-gray-400">Responder Mode</h4>
+          <BotToggle
+            conversationId={conversationId}
+            isBot={conversation.isBot}
+            onToggle={(isBot) => onConversationChange?.({ ...conversation, isBot })}
+          />
+          <p className="mt-2 text-[11px] text-gray-400">
+            {conversation.isBot ? 'Bot กำลังตอบโดยอัตโนมัติ' : 'Admin ตอบด้วยตนเอง'}
+          </p>
+        </div>
+      )}
 
       {/* Tags */}
       <div className="border-b border-gray-200 p-4">

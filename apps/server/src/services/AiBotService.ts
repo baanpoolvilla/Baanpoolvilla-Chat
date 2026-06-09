@@ -1,11 +1,19 @@
-import { SenderType } from '@prisma/client';
+import { SenderType, Platform } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { getSocketIO } from '../lib/socket';
 import { logger } from '../lib/logger';
 
 export class AiBotService {
-  static async reply(conversationId: string, customerMessage: string): Promise<void> {
+  static async reply(conversationId: string, customerMessage: string, contactName?: string, platform?: Platform): Promise<void> {
     try {
+      // ─── ถ้ามี N8N_WEBHOOK_URL → ส่งไป n8n แทน (fire-and-forget) ──────────
+      const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
+      if (n8nWebhookUrl) {
+        await AiBotService.forwardToN8n(n8nWebhookUrl, conversationId, customerMessage, contactName, platform);
+        return;
+      }
+
+      // ─── Fallback: ใช้ AI โดยตรง (OpenAI / Anthropic) ────────────────────
       const config = await prisma.aiBotConfig.findFirst({
         where: { isActive: true },
       });
@@ -136,6 +144,54 @@ export class AiBotService {
       logger.info('AI bot replied', { conversationId, provider: config.provider });
     } catch (error) {
       logger.error('AiBotService.reply failed', { error, conversationId });
+    }
+  }
+
+  // ─── Forward to n8n webhook ───────────────────────────────────────────────
+  private static async forwardToN8n(
+    webhookUrl: string,
+    conversationId: string,
+    customerMessage: string,
+    contactName?: string,
+    platform?: Platform,
+  ): Promise<void> {
+    try {
+      // ดึง history 20 ข้อความล่าสุดเพื่อส่งให้ n8n
+      const recentMessages = await prisma.message.findMany({
+        where: { conversationId },
+        orderBy: { sentAt: 'desc' },
+        take: 20,
+        select: { senderType: true, content: true, sentAt: true },
+      });
+
+      const history = recentMessages.reverse().map((m) => ({
+        role: m.senderType === SenderType.CUSTOMER ? 'user' : 'assistant',
+        content: m.content,
+        sentAt: m.sentAt,
+      }));
+
+      const payload = {
+        conversationId,
+        message: customerMessage,
+        contactName: contactName ?? 'Customer',
+        platform: platform ?? 'LINE',
+        history,
+      };
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10_000), // 10s timeout
+      });
+
+      if (!response.ok) {
+        logger.error('n8n webhook returned error', { status: response.status, conversationId });
+      } else {
+        logger.info('Forwarded to n8n webhook', { conversationId });
+      }
+    } catch (error) {
+      logger.error('Failed to forward to n8n webhook', { error, conversationId });
     }
   }
 

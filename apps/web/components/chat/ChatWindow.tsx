@@ -6,6 +6,7 @@ import { useSocket } from '@/hooks/useSocket';
 import MessageBubble from './MessageBubble';
 import MessageContextMenu from './MessageContextMenu';
 import MessageInput from './MessageInput';
+import BotToggle from './BotToggle';
 import { format } from 'date-fns';
 import type { Conversation, ConversationRead, Message, Tag } from '@/types';
 import { ChevronLeft, ChevronUp, ChevronDown, Info, Loader2, Pin, Search, X } from 'lucide-react';
@@ -22,9 +23,10 @@ interface ChatWindowProps {
   contactNameOverride?: string;
   onCloseChat?: () => void;
   onRefreshConversation?: () => void;
+  onBotToggle?: (isBot: boolean) => void;
 }
 
-export default function ChatWindow({ conversationId, conversation, isConversationLoading = false, onToggleInfo, contactNameOverride, onCloseChat, onRefreshConversation }: ChatWindowProps) {
+export default function ChatWindow({ conversationId, conversation, isConversationLoading = false, onToggleInfo, contactNameOverride, onCloseChat, onRefreshConversation, onBotToggle }: ChatWindowProps) {
   const { messages, isLoading, hasMore, loadMore, sendMessage } = useMessages(conversationId);
   const { on } = useSocket();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -288,6 +290,14 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
             </h3>
             <div className="mt-0.5 flex items-center gap-2">
               {conversation?.platform && <PlatformBadge platform={conversation.platform} compact />}
+              {conversation && onBotToggle && canModifyChat && (
+                <BotToggle
+                  conversationId={conversationId}
+                  isBot={conversation.isBot}
+                  onToggle={onBotToggle}
+                  size="sm"
+                />
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1">
