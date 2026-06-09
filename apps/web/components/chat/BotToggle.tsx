@@ -19,7 +19,7 @@ export default function BotToggle({ conversationId, isBot, onToggle, size = 'md'
     if (loading || value === isBot) return;
     try {
       setLoading(true);
-      await api.patch(`/conversations/${conversationId}/bot`, { isBot: value });
+      await api.patch(`/api/conversations/${conversationId}/bot`, { isBot: value });
       onToggle(value);
     } catch (error) {
       console.error('Failed to toggle bot:', error);
@@ -35,7 +35,7 @@ export default function BotToggle({ conversationId, isBot, onToggle, size = 'md'
           onClick={() => toggle(false)}
           className={cn(
             'flex items-center gap-1 px-2 py-1 text-[11px] font-semibold transition-colors',
-            !isBot ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50',
+            !isBot ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50',
           )}
         >
           <UserCheck className="h-3 w-3" />
@@ -45,7 +45,7 @@ export default function BotToggle({ conversationId, isBot, onToggle, size = 'md'
           onClick={() => toggle(true)}
           className={cn(
             'flex items-center gap-1 border-l border-gray-200 px-2 py-1 text-[11px] font-semibold transition-colors',
-            isBot ? 'bg-purple-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50',
+            isBot ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50',
           )}
         >
           <Bot className="h-3 w-3" />
@@ -61,7 +61,7 @@ export default function BotToggle({ conversationId, isBot, onToggle, size = 'md'
         onClick={() => toggle(false)}
         className={cn(
           'flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors',
-          !isBot ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50',
+          !isBot ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50',
         )}
       >
         <UserCheck className="h-3.5 w-3.5" />
@@ -71,7 +71,7 @@ export default function BotToggle({ conversationId, isBot, onToggle, size = 'md'
         onClick={() => toggle(true)}
         className={cn(
           'flex items-center gap-1.5 border-l border-gray-200 px-3 py-2 text-xs font-semibold transition-colors',
-          isBot ? 'bg-purple-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50',
+          isBot ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50',
         )}
       >
         <Bot className="h-3.5 w-3.5" />
