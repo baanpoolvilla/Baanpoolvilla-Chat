@@ -5,6 +5,7 @@ import type { Conversation } from '@/types';
 import { cn, formatTimeAgo, truncate } from '@/lib/utils';
 import TagBadge from './TagBadge';
 import PlatformBadge from '@/components/common/PlatformBadge';
+import { Bot, UserCheck } from 'lucide-react';
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -48,9 +49,22 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="truncate text-sm font-semibold text-gray-900">
-            {displayName}
-          </h4>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h4 className="truncate text-sm font-semibold text-gray-900">
+              {displayName}
+            </h4>
+            {conversation.isBot ? (
+              <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
+                <Bot className="h-2.5 w-2.5" />
+                Bot
+              </span>
+            ) : (
+              <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500">
+                <UserCheck className="h-2.5 w-2.5" />
+                Admin
+              </span>
+            )}
+          </div>
           <span className="flex-shrink-0 text-xs text-gray-400">
             {lastMsgAt ? formatTimeAgo(lastMsgAt) : ''}
           </span>
