@@ -1,4 +1,5 @@
 import { SenderType, Platform } from '@prisma/client';
+import axios from 'axios';
 import prisma from '../lib/prisma';
 import { getSocketIO } from '../lib/socket';
 import { logger } from '../lib/logger';
@@ -8,6 +9,7 @@ export class AiBotService {
     try {
       // ─── ถ้ามี N8N_WEBHOOK_URL → ส่งไป n8n แทน (fire-and-forget) ──────────
       const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
+      logger.info('AiBotService.reply called', { conversationId, n8nWebhookUrl: n8nWebhookUrl ? 'SET' : 'NOT SET' });
       if (n8nWebhookUrl) {
         await AiBotService.forwardToN8n(n8nWebhookUrl, conversationId, customerMessage, contactName, platform);
         return;
@@ -178,18 +180,12 @@ export class AiBotService {
         history,
       };
 
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
+      const response = await axios.post(webhookUrl, payload, {
+        timeout: 10_000,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10_000), // 10s timeout
       });
 
-      if (!response.ok) {
-        logger.error('n8n webhook returned error', { status: response.status, conversationId });
-      } else {
-        logger.info('Forwarded to n8n webhook', { conversationId });
-      }
+      logger.info('Forwarded to n8n webhook', { conversationId, status: response.status });
     } catch (error) {
       logger.error('Failed to forward to n8n webhook', { error, conversationId });
     }
