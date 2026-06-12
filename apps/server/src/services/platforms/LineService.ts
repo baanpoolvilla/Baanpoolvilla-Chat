@@ -1,4 +1,6 @@
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import { ContentType } from '@prisma/client';
 import { logger } from '../../lib/logger';
 import prisma from '../../lib/prisma';
@@ -149,6 +151,47 @@ export class LineService {
       displayName: response.data.displayName,
       pictureUrl: response.data.pictureUrl,
     };
+  }
+
+  static async downloadMedia(messageId: string): Promise<{ filename: string } | null> {
+    const accessToken = await LineService.getAccessToken();
+    if (!accessToken) return null;
+
+    try {
+      const response = await axios.get<NodeJS.ReadableStream>(
+        `https://api-data.line.me/v2/bot/message/${messageId}/content`,
+        {
+          responseType: 'stream',
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: 30000,
+        }
+      );
+
+      const rawContentType = (response.headers['content-type'] as string || 'application/octet-stream').split(';')[0].trim();
+      const mimeToExt: Record<string, string> = {
+        'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+        'image/gif': 'gif', 'image/webp': 'webp',
+        'video/mp4': 'mp4', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a',
+      };
+      const ext = mimeToExt[rawContentType] || rawContentType.split('/')[1]?.split('+')[0] || 'bin';
+      const filename = `line-${messageId}.${ext}`;
+      const uploadDir = path.resolve(process.cwd(), 'uploads');
+
+      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+      await new Promise<void>((resolve, reject) => {
+        const writer = fs.createWriteStream(path.join(uploadDir, filename));
+        (response.data as NodeJS.ReadableStream).pipe(writer);
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+      });
+
+      logger.debug('LINE media downloaded', { messageId, filename });
+      return { filename };
+    } catch (err) {
+      logger.warn('Failed to download LINE media, will use proxy URL', { messageId, error: err });
+      return null;
+    }
   }
 
   static async getBotInfoByToken(accessToken: string): Promise<{

@@ -7,6 +7,7 @@ export interface ConversationFilters {
   status?: ConversationStatus;
   platform?: Platform;
   tagIds?: string[];
+  noTags?: boolean;
   adminId?: string;
   search?: string;
   isBot?: boolean;
@@ -117,7 +118,9 @@ export class ConversationService {
       };
     }
 
-    if (filters.tagIds && filters.tagIds.length > 0) {
+    if (filters.noTags) {
+      where.tags = { none: {} };
+    } else if (filters.tagIds && filters.tagIds.length > 0) {
       // AND logic: conversation must have ALL selected tags
       where.AND = [
         ...(Array.isArray(where.AND) ? where.AND : []),

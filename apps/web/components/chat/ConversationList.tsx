@@ -37,6 +37,7 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
   const [showFilters, setShowFilters] = useState(false);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [noTagsFilter, setNoTagsFilter] = useState(false);
   const listContainerRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const admin = useAuth((s) => s.admin);
@@ -59,8 +60,21 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
     setFilters((current) => ({
       ...current,
       tagIds: selectedTagIds.length > 0 ? selectedTagIds.join(',') : undefined,
+      noTags: noTagsFilter ? true : undefined,
     }));
-  }, [selectedTagIds, setFilters]);
+  }, [selectedTagIds, noTagsFilter, setFilters]);
+
+  const handleTagToggle = (tagId: string) => {
+    setNoTagsFilter(false);
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
+
+  const handleNoTagsToggle = () => {
+    setNoTagsFilter((prev) => !prev);
+    setSelectedTagIds([]);
+  };
 
   useEffect(() => {
     if (registerContactRenamer) {
@@ -176,11 +190,7 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
                 return (
                   <button
                     key={tag.id}
-                    onClick={() =>
-                      setSelectedTagIds((prev) =>
-                        active ? prev.filter((id) => id !== tag.id) : [...prev, tag.id]
-                      )
-                    }
+                    onClick={() => handleTagToggle(tag.id)}
                     className={cn(
                       'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
                       active ? 'text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
@@ -234,33 +244,38 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
                 </option>
               ))}
             </select>
-            {allTags.filter((t) => t.category?.name !== 'สถานะแชท').length > 0 && (
-              <div>
-                <p className="mb-1 text-xs font-medium text-gray-500">แท็ก</p>
-                <div className="flex flex-wrap gap-1">
-                  {allTags.filter((t) => t.category?.name !== 'สถานะแชท').map((tag) => {
-                    const active = selectedTagIds.includes(tag.id);
-                    return (
-                      <button
-                        key={tag.id}
-                        onClick={() =>
-                          setSelectedTagIds((prev) =>
-                            active ? prev.filter((id) => id !== tag.id) : [...prev, tag.id]
-                          )
-                        }
-                        className={cn(
-                          'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
-                          active ? 'text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
-                        )}
-                        style={active ? { backgroundColor: tag.color, borderColor: tag.color } : undefined}
-                      >
-                        {tag.name}
-                      </button>
-                    );
-                  })}
-                </div>
+            <div>
+              <p className="mb-1 text-xs font-medium text-gray-500">แท็ก</p>
+              <div className="flex flex-wrap gap-1">
+                <button
+                  onClick={handleNoTagsToggle}
+                  className={cn(
+                    'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+                    noTagsFilter
+                      ? 'border-gray-500 bg-gray-600 text-white'
+                      : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                  )}
+                >
+                  ยังไม่มีแท็ก
+                </button>
+                {allTags.filter((t) => t.category?.name !== 'สถานะแชท').map((tag) => {
+                  const active = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => handleTagToggle(tag.id)}
+                      className={cn(
+                        'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+                        active ? 'text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      )}
+                      style={active ? { backgroundColor: tag.color, borderColor: tag.color } : undefined}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>

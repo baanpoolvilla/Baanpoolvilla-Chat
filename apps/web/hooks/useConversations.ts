@@ -77,6 +77,7 @@ interface ConversationFilters {
   status?: ConversationStatus;
   platform?: Platform;
   tagIds?: string;
+  noTags?: boolean;
   adminId?: string;
   search?: string;
   isBot?: string;
@@ -89,6 +90,7 @@ function areFiltersEqual(left: ConversationFilters, right: ConversationFilters) 
     left.status === right.status &&
     left.platform === right.platform &&
     left.tagIds === right.tagIds &&
+    left.noTags === right.noTags &&
     left.adminId === right.adminId &&
     left.search === right.search &&
     left.isBot === right.isBot &&
@@ -140,6 +142,7 @@ export function useConversations(initialFilters?: ConversationFilters) {
       if (sourceFilters.status) params.set('status', sourceFilters.status);
       if (sourceFilters.platform) params.set('platform', sourceFilters.platform);
       if (sourceFilters.tagIds) params.set('tagIds', sourceFilters.tagIds);
+      if (sourceFilters.noTags) params.set('noTags', 'true');
       if (sourceFilters.adminId) params.set('adminId', sourceFilters.adminId);
       if (sourceFilters.search) params.set('search', sourceFilters.search);
       if (sourceFilters.isBot) params.set('isBot', sourceFilters.isBot);

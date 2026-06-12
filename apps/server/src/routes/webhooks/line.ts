@@ -42,26 +42,42 @@ router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: 
             content = event.message.text;
             contentType = 'TEXT';
             break;
-          case 'image':
+          case 'image': {
             content = '[Image]';
             contentType = 'IMAGE';
-            mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
+            const imgDl = await LineService.downloadMedia(event.message.id);
+            mediaUrl = imgDl
+              ? `${apiBaseUrl}/uploads/${imgDl.filename}`
+              : `${apiBaseUrl}/api/media/line/${event.message.id}`;
             break;
-          case 'video':
+          }
+          case 'video': {
             content = '[Video]';
             contentType = 'VIDEO';
-            mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
+            const vidDl = await LineService.downloadMedia(event.message.id);
+            mediaUrl = vidDl
+              ? `${apiBaseUrl}/uploads/${vidDl.filename}`
+              : `${apiBaseUrl}/api/media/line/${event.message.id}`;
             break;
-          case 'audio':
+          }
+          case 'audio': {
             content = '[Audio]';
             contentType = 'AUDIO';
-            mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
+            const audDl = await LineService.downloadMedia(event.message.id);
+            mediaUrl = audDl
+              ? `${apiBaseUrl}/uploads/${audDl.filename}`
+              : `${apiBaseUrl}/api/media/line/${event.message.id}`;
             break;
-          case 'file':
+          }
+          case 'file': {
             content = event.message.fileName || '[File]';
             contentType = 'FILE';
-            mediaUrl = `${apiBaseUrl}/api/media/line/${event.message.id}`;
+            const fileDl = await LineService.downloadMedia(event.message.id);
+            mediaUrl = fileDl
+              ? `${apiBaseUrl}/uploads/${fileDl.filename}`
+              : `${apiBaseUrl}/api/media/line/${event.message.id}`;
             break;
+          }
           case 'sticker':
             content = `[Sticker: ${event.message.packageId}/${event.message.stickerId}]`;
             contentType = 'STICKER';
@@ -111,11 +127,13 @@ router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: 
         await MessageService.ingest(incoming);
       } catch (eventError) {
         logger.error('Failed to process LINE event', {
-          error: eventError,
+          error: eventError instanceof Error ? eventError.message : String(eventError),
+          stack: eventError instanceof Error ? eventError.stack : undefined,
           eventType: event.message?.type,
           messageId: event.message?.id,
+          userId: event.source?.userId,
+          timestamp: event.timestamp,
         });
-        // Continue processing remaining events
       }
     }
   } catch (error) {

@@ -55,7 +55,11 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 // ─── Rate limiting ──────────────────────────────────────
-app.use('/api', apiLimiter);
+// Webhooks have their own per-route limiter; skip the general API limiter for them.
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/webhooks/')) return next();
+  apiLimiter(req, res, next);
+});
 
 // ─── Health check ───────────────────────────────────────
 app.get('/health', (_req, res) => {
