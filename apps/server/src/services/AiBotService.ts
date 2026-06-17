@@ -3,8 +3,93 @@ import axios from 'axios';
 import prisma from '../lib/prisma';
 import { getSocketIO } from '../lib/socket';
 import { logger } from '../lib/logger';
+import { conversationSummarySelect } from './ConversationService';
 
 export class AiBotService {
+  // ─── Save bot reply to DB, emit Socket.IO, send to platform ─────────────
+  static async deliverBotReply(conversationId: string, replyText: string): Promise<void> {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { contact: true },
+    });
+
+    if (!conversation) {
+      logger.error('Conversation not found for bot reply delivery', { conversationId });
+      return;
+    }
+
+    const message = await prisma.$transaction(async (tx) => {
+      const msg = await tx.message.create({
+        data: {
+          conversationId,
+          senderType: SenderType.BOT,
+          content: replyText,
+          contentType: 'TEXT',
+        },
+      });
+      await tx.conversation.update({
+        where: { id: conversationId },
+        data: {
+          lastMessage: replyText.substring(0, 200),
+          lastMsgAt: new Date(),
+        },
+      });
+      return msg;
+    });
+
+    const fullMessage = await prisma.message.findUnique({
+      where: { id: message.id },
+      include: { conversation: { include: { contact: true } } },
+    });
+
+    const io = getSocketIO();
+    io.to(`conversation:${conversationId}`).emit('message:new', fullMessage);
+
+    const updatedConversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: conversationSummarySelect,
+    });
+    if (updatedConversation) {
+      io.emit('conversation:updated', updatedConversation);
+    }
+
+    const platformContact = await prisma.platformContact.findFirst({
+      where: { contactId: conversation.contactId, platform: conversation.platform },
+    });
+
+    if (platformContact) {
+      try {
+        const { LineService } = await import('./platforms/LineService');
+        const { FacebookService } = await import('./platforms/FacebookService');
+        const { InstagramService } = await import('./platforms/InstagramService');
+        const { TikTokService } = await import('./platforms/TikTokService');
+
+        switch (conversation.platform) {
+          case 'LINE':
+            await LineService.sendMessage(platformContact.platformUid, replyText, 'TEXT');
+            break;
+          case 'FACEBOOK':
+            await FacebookService.sendMessage(platformContact.platformUid, replyText, 'TEXT');
+            break;
+          case 'INSTAGRAM':
+            await InstagramService.sendMessage(platformContact.platformUid, replyText, 'TEXT');
+            break;
+          case 'TIKTOK':
+            await TikTokService.sendMessage(platformContact.platformUid, replyText, 'TEXT');
+            break;
+        }
+      } catch (sendError) {
+        logger.error('Failed to send bot reply to platform', {
+          error: sendError,
+          conversationId,
+          platform: conversation.platform,
+        });
+      }
+    }
+
+    logger.info('Bot reply delivered', { conversationId, platform: conversation.platform });
+  }
+
   static async reply(conversationId: string, customerMessage: string, contactName?: string, platform?: Platform): Promise<void> {
     try {
       // ─── ถ้ามี N8N_WEBHOOK_URL → ส่งไป n8n แทน (fire-and-forget) ──────────

@@ -21,12 +21,16 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
       ? contact.originalDisplayName
       : null;
 
-  return (
+  const hasActionTag = tags?.some(ct => ct.tag.name === 'ดำเนินการ');
+
+  const button = (
     <button
       onClick={() => onSelect(conversation)}
       className={cn(
-        'flex w-full items-start gap-3 border-b border-gray-100 px-4 py-3.5 text-left transition-colors sm:rounded-lg sm:border sm:px-3 sm:py-3',
-        isActive ? 'bg-brand-50 sm:border-brand-200' : 'hover:bg-gray-50 sm:border-transparent'
+        'flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors sm:px-3 sm:py-3',
+        hasActionTag
+          ? cn('rounded-[8px]', isActive ? 'bg-brand-50' : 'bg-white hover:bg-gray-50')
+          : cn('border-b border-gray-100 sm:rounded-lg sm:border', isActive ? 'bg-brand-50 sm:border-brand-200' : 'hover:bg-gray-50 sm:border-transparent')
       )}
     >
       {/* Avatar */}
@@ -119,6 +123,23 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
       </div>
     </button>
   );
+
+  if (hasActionTag) {
+    return (
+      <div
+        className="relative overflow-hidden rounded-[10px] p-[2px]"
+        style={{ boxShadow: '0 0 10px rgba(34, 197, 94, 0.35), 0 0 3px rgba(34, 197, 94, 0.5)' }}
+      >
+        <div
+          className="green-border-spinner absolute inset-[-50%] w-[200%] h-[200%]"
+          style={{ zIndex: -1 }}
+        />
+        {button}
+      </div>
+    );
+  }
+
+  return button;
 }
 
 export default memo(ConversationItem);

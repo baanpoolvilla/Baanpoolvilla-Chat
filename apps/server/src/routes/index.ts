@@ -13,6 +13,7 @@ import lineWebhook from './webhooks/line';
 import facebookWebhook from './webhooks/facebook';
 import instagramWebhook from './webhooks/instagram';
 import tiktokWebhook from './webhooks/tiktok';
+import n8nWebhook from './webhooks/n8n';
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.use('/webhooks/line', lineWebhook);
 router.use('/webhooks/facebook', facebookWebhook);
 router.use('/webhooks/instagram', instagramWebhook);
 router.use('/webhooks/tiktok', tiktokWebhook);
+router.use('/webhooks/n8n', n8nWebhook);
 
 export default router;

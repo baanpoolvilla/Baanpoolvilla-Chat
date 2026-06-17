@@ -69,3 +69,23 @@
 .message-enter {
   animation: slideIn 0.2s ease-out;
 }
+
+/* Running green border for "ดำเนินการ" tagged conversations */
+@keyframes green-border-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.green-border-spinner {
+  animation: green-border-spin 3s linear infinite;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 240deg,
+    #4ade80 270deg,
+    #22c55e 300deg,
+    #86efac 330deg,
+    #22c55e 350deg,
+    transparent 360deg
+  );
+}

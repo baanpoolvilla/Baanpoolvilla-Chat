@@ -134,7 +134,13 @@ export class LineService {
       logger.debug('LINE message sent', { recipientId });
       return { quoteToken: lastSent?.quoteToken, messageId: lastSent?.id };
     } catch (error) {
-      logger.error('LINE sendMessage failed', { error, recipientId });
+      const axiosErr = error as { response?: { status?: number; data?: unknown } };
+      logger.error('LINE sendMessage failed', {
+        recipientId,
+        httpStatus: axiosErr.response?.status,
+        lineApiError: axiosErr.response?.data,
+        message: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
