@@ -290,6 +290,20 @@ model QuickReply {
   updatedAt DateTime @updatedAt
 }
 
+model UnansweredMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  messageText    String
+  contactName    String?
+  intent         String?
+  zone           String?
+  code           String?
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
 enum Platform {
   LINE
   FACEBOOK
