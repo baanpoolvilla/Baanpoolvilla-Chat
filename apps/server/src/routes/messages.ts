@@ -198,6 +198,47 @@ router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response)
   }
 });
 
+const bulkSendSchema = z.object({
+  conversationIds: z.array(z.string().cuid()).min(1).max(50),
+  content: z.string().min(1),
+  contentType: z.enum(['TEXT', 'IMAGE', 'VIDEO', 'AUDIO', 'FILE', 'STICKER', 'LOCATION', 'TEMPLATE']).default('TEXT'),
+  mediaUrl: z.string().url().optional(),
+});
+
+router.post('/bulk-send', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = bulkSendSchema.parse(req.body);
+    const { MessageService } = await import('../services/MessageService');
+
+    const settled = await Promise.allSettled(
+      data.conversationIds.map((conversationId) =>
+        MessageService.sendAdminMessage({
+          conversationId,
+          adminId: req.admin!.id,
+          content: data.content,
+          contentType: data.contentType,
+          mediaUrl: data.mediaUrl,
+        })
+      )
+    );
+
+    const results = settled.map((r, i) => ({
+      conversationId: data.conversationIds[i],
+      success: r.status === 'fulfilled',
+      ...(r.status === 'rejected' && { error: String(r.reason?.message ?? r.reason) }),
+    }));
+
+    res.json({ results });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    logger.error('Bulk send error', { error });
+    res.status(500).json({ error: 'Failed to bulk send messages' });
+  }
+});
+
 router.get('/pinned', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { conversationId } = req.query;

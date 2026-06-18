@@ -210,6 +210,7 @@ export class MessageService {
           },
         });
 
+        let isNewConversation = false;
         if (!conversation) {
           conversation = await tx.conversation.create({
             data: {
@@ -223,6 +224,7 @@ export class MessageService {
               unreadCount: 1,
             },
           });
+          isNewConversation = true;
         } else {
           conversation = await tx.conversation.update({
             where: { id: conversation.id },
@@ -262,8 +264,25 @@ export class MessageService {
           select: messageWithReplySelect,
         });
 
-        return { contact, conversation, message };
+        return { contact, conversation, message, isNewConversation };
       });
+
+      // Auto-tag new conversations with "new" and "follow up 1"
+      if (result.isNewConversation) {
+        const autoTags = await prisma.tag.findMany({
+          where: { name: { in: ['new', 'follow up 1'], mode: 'insensitive' } },
+          select: { id: true },
+        });
+        if (autoTags.length > 0) {
+          await prisma.conversationTag.createMany({
+            data: autoTags.map((tag) => ({
+              conversationId: result.conversation.id,
+              tagId: tag.id,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
 
       const io = getSocketIO();
 

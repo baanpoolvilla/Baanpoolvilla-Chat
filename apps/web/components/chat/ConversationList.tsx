@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import ConversationItem from './ConversationItem';
+import BulkSendModal from './BulkSendModal';
 import type { Conversation, ConversationStatus, Platform, Tag } from '@/types';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, SendHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,6 +36,7 @@ const platformOptions: { value: Platform | ''; label: string }[] = [
 export default function ConversationList({ activeId, onSelect, registerContactRenamer }: ConversationListProps) {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showBulkSend, setShowBulkSend] = useState(false);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [noTagsFilter, setNoTagsFilter] = useState(false);
@@ -144,20 +146,33 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
   };
 
   return (
+    <>
+    {showBulkSend && <BulkSendModal onClose={() => setShowBulkSend(false)} />}
     <div className="flex h-full min-h-0 w-full flex-col bg-white">
       {/* Header */}
       <div className="border-b border-gray-200 px-4 py-3 sm:p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-gray-900">Conversations</h2>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(
-              'rounded-lg p-1.5 text-gray-500 hover:bg-gray-100',
-              showFilters && 'bg-brand-50 text-brand-600'
+          <div className="flex items-center gap-1">
+            {canModifyChat && (
+              <button
+                onClick={() => setShowBulkSend(true)}
+                title="ส่งข้อความหลายแชท"
+                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-600 transition-colors"
+              >
+                <SendHorizontal className="h-4 w-4" />
+              </button>
             )}
-          >
-            <Filter className="h-4 w-4" />
-          </button>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                'rounded-lg p-1.5 text-gray-500 hover:bg-gray-100',
+                showFilters && 'bg-brand-50 text-brand-600'
+              )}
+            >
+              <Filter className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -309,5 +324,6 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
         )}
       </div>
     </div>
+    </>
   );
 }
