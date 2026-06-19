@@ -8,9 +8,10 @@ import type { QuickReply } from '@/types';
 interface QuickReplyPickerProps {
   onSelect: (content: string) => void;
   onClose: () => void;
+  className?: string;
 }
 
-export default function QuickReplyPicker({ onSelect, onClose }: QuickReplyPickerProps) {
+export default function QuickReplyPicker({ onSelect, onClose, className }: QuickReplyPickerProps) {
   const [items, setItems] = useState<QuickReply[]>([]);
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -99,7 +100,7 @@ export default function QuickReplyPicker({ onSelect, onClose }: QuickReplyPicker
   return (
     <div
       ref={containerRef}
-      className="absolute bottom-full left-0 z-50 mb-2 w-[calc(100vw-1.5rem)] max-w-96 rounded-xl border border-gray-200 bg-white shadow-xl sm:w-96"
+      className={className ?? "absolute bottom-full left-0 z-50 mb-2 w-[calc(100vw-1.5rem)] max-w-96 rounded-xl border border-gray-200 bg-white shadow-xl sm:w-96"}
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">

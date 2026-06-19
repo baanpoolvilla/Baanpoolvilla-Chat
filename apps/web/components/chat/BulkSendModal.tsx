@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Search, Send, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Search, Send, Loader2, MessageSquarePlus } from 'lucide-react';
 import api from '@/lib/api';
 import type { Conversation } from '@/types';
 import { cn } from '@/lib/utils';
 import PlatformBadge from '@/components/common/PlatformBadge';
+import QuickReplyPicker from './QuickReplyPicker';
 
 interface BulkSendModalProps {
   onClose: () => void;
@@ -21,6 +22,8 @@ export default function BulkSendModal({ onClose }: BulkSendModalProps) {
   const [isSending, setIsSending] = useState(false);
   const [results, setResults] = useState<SendResult[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const quickReplyBtnRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api
@@ -200,7 +203,34 @@ export default function BulkSendModal({ onClose }: BulkSendModalProps) {
 
             {/* Right — message composer */}
             <div className="flex flex-shrink-0 flex-col gap-3 p-4 md:w-1/2 md:flex-1">
-              <label className="text-sm font-medium text-gray-700">ข้อความที่จะส่ง</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">ข้อความที่จะส่ง</label>
+                <div ref={quickReplyBtnRef} className="relative">
+                  <button
+                    onClick={() => setShowQuickReplies((v) => !v)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+                      showQuickReplies
+                        ? 'bg-brand-100 text-brand-700'
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                    )}
+                    title="ข้อความสำเร็จรูป"
+                  >
+                    <MessageSquarePlus className="h-3.5 w-3.5" />
+                    Quick Reply
+                  </button>
+                  {showQuickReplies && (
+                    <QuickReplyPicker
+                      onSelect={(text) => {
+                        setContent(text);
+                        setShowQuickReplies(false);
+                      }}
+                      onClose={() => setShowQuickReplies(false)}
+                      className="absolute right-0 top-full z-50 mt-1 w-80 rounded-xl border border-gray-200 bg-white shadow-xl"
+                    />
+                  )}
+                </div>
+              </div>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
