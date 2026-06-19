@@ -66,7 +66,7 @@ export class AiBotService {
 
         switch (conversation.platform) {
           case 'LINE':
-            await LineService.sendMessage(platformContact.platformUid, replyText, 'TEXT');
+            await LineService.sendMessage(conversation.channelId, replyText, 'TEXT');
             break;
           case 'FACEBOOK':
             await FacebookService.sendMessage(platformContact.platformUid, replyText, 'TEXT');

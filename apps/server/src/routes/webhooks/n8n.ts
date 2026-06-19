@@ -93,6 +93,38 @@ router.post('/unanswered', webhookLimiter, async (req: Request, res: Response): 
   }
 });
 
+// POST /api/webhooks/n8n/handover
+// n8n calls this to switch conversation from Bot → Admin mode
+router.post('/handover', webhookLimiter, async (req: Request, res: Response): Promise<void> => {
+  const secret = process.env.N8N_WEBHOOK_SECRET;
+  if (secret) {
+    const incoming =
+      req.headers['x-n8n-secret'] ??
+      req.headers['authorization']?.toString().replace(/^Bearer\s+/i, '');
+    if (incoming !== secret) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+  }
+
+  const parsed = z.object({ conversationId: z.string().min(1) }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid payload', details: parsed.error.errors });
+    return;
+  }
+
+  res.status(200).json({ status: 'ok' });
+
+  const { conversationId } = parsed.data;
+  try {
+    const { ConversationService } = await import('../../services/ConversationService');
+    await ConversationService.toggleBot(conversationId, false);
+    logger.info('Bot handover to admin', { conversationId });
+  } catch (err) {
+    logger.error('Failed to handover conversation', { error: err, conversationId });
+  }
+});
+
 // GET /api/webhooks/n8n/unanswered
 router.get('/unanswered', async (req: Request, res: Response): Promise<void> => {
   try {
