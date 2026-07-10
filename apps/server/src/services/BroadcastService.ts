@@ -1,4 +1,4 @@
-import { BroadcastTarget, Platform, ContentType, BroadcastStatus } from '@prisma/client';
+import { BroadcastTarget, Platform, ContentType, BroadcastStatus, Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { broadcastQueue } from '../lib/redis';
 import { logger } from '../lib/logger';
@@ -118,7 +118,7 @@ export class BroadcastService {
         ...(params.platforms !== undefined && { platforms: params.platforms }),
         ...(params.targetType !== undefined && { targetType: params.targetType }),
         ...(params.tagFilter !== undefined && {
-          tagFilter: params.tagFilter.length > 0 ? { tagIds: params.tagFilter } : null,
+          tagFilter: params.tagFilter.length > 0 ? { tagIds: params.tagFilter } : Prisma.JsonNull,
         }),
         ...('scheduledAt' in params && { scheduledAt: params.scheduledAt ?? null, status: newStatus }),
       },
