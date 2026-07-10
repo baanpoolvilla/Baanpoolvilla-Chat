@@ -8,7 +8,6 @@ import { FacebookService } from '../services/platforms/FacebookService';
 import { InstagramService } from '../services/platforms/InstagramService';
 import { TikTokService } from '../services/platforms/TikTokService';
 import { BroadcastService } from '../services/BroadcastService';
-import { MessageService } from '../services/MessageService';
 
 interface BroadcastJobData {
   broadcastId: string;
@@ -45,13 +44,6 @@ export function startBroadcastWorker(): Worker {
           sentAt: new Date(),
         },
       });
-
-      // Resolve the creator admin once so the mirrored chat messages can be attributed
-      // to them (fall back to unattributed if the admin was since deleted).
-      const creatorAdmin = broadcast.createdBy
-        ? await prisma.admin.findUnique({ where: { id: broadcast.createdBy }, select: { id: true } })
-        : null;
-      const messageAdminId = creatorAdmin?.id ?? undefined;
 
       let sentCount = 0;
       let failCount = 0;
@@ -105,18 +97,6 @@ export function startBroadcastWorker(): Worker {
               },
             });
             sentCount++;
-
-            // Mirror the broadcast into the contact's conversation so it shows in chat
-            await MessageService.recordBroadcastMessage({
-              contactId: contact.id,
-              platform: platformLink.platform,
-              channelIdFallback: platformLink.platformUid,
-              content: broadcast.content,
-              contentType: broadcast.contentType,
-              mediaUrl: broadcast.mediaUrl || undefined,
-              adminId: messageAdminId,
-              broadcastId,
-            });
           } catch (error) {
             await prisma.broadcastLog.create({
               data: {
