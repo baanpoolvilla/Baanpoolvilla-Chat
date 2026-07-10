@@ -33,6 +33,7 @@ router.post('/', webhookLimiter, verifyFacebookSignature, async (req: Request, r
 
       for (const event of messaging) {
         if (!event.message) continue;
+        if (event.message.is_echo) continue; // skip page's own outbound messages
 
         const senderId = event.sender.id;
         let content = '';

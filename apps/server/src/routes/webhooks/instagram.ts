@@ -32,6 +32,7 @@ router.post('/', webhookLimiter, verifyInstagramSignature, async (req: Request, 
 
       for (const event of messaging) {
         if (!event.message) continue;
+        if (event.message.is_echo) continue; // skip page's own outbound messages
 
         const senderId = event.sender.id;
         let content = '';

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
+import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { getDefaultDashboardRoute } from '@/lib/permissions';
@@ -23,8 +24,9 @@ export default function LoginPage() {
       const admin = useAuth.getState().admin;
       router.push(getDefaultDashboardRoute(admin?.role));
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+      const message = axios.isAxiosError(err)
+        ? (err.response?.data?.error || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+        : (err instanceof Error ? err.message : 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
       setError(message);
     } finally {
       setLoading(false);

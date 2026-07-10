@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { useSocket } from './useSocket';
+import { getSocket } from '@/lib/socket';
 import type { Message, MessageListResponse } from '@/types';
 
 function createClientRequestId() {
@@ -92,10 +93,18 @@ export function useMessages(conversationId: string | null) {
       }
     });
 
+    // Re-fetch on reconnect so messages missed during WebSocket downtime are recovered
+    const rawSocket = getSocket();
+    const handleReconnect = () => {
+      if (conversationId) fetchMessages(1);
+    };
+    rawSocket.on('connect', handleReconnect);
+
     return () => {
       offNew();
+      rawSocket.off('connect', handleReconnect);
     };
-  }, [conversationId, on]);
+  }, [conversationId, on, fetchMessages]);
 
   const loadMore = useCallback(() => {
     if (!isLoading && hasMore) {

@@ -10,13 +10,13 @@ export const loginLimiter = rateLimit({
 
 export const webhookLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 2000,
   message: { error: 'Too many requests' },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    return req.ip || req.headers['x-real-ip'] as string || 'unknown';
-  },
+  // Webhooks arrive from platform servers (LINE/Meta), not individual users.
+  // Use a single global bucket so all platform IPs share a high limit together.
+  keyGenerator: () => 'webhook-global',
 });
 
 export const apiLimiter = rateLimit({

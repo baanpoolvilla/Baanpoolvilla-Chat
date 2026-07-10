@@ -257,12 +257,17 @@ export class AiBotService {
         sentAt: m.sentAt,
       }));
 
+      const now = new Date();
       const payload = {
         conversationId,
         message: customerMessage,
         contactName: contactName ?? 'Customer',
         platform: platform ?? 'LINE',
         history,
+        currentDate: now.toISOString().split('T')[0],
+        currentDatetime: now.toISOString(),
+        currentDayOfWeek: now.toLocaleDateString('th-TH', { weekday: 'long', timeZone: 'Asia/Bangkok' }),
+        timezone: 'Asia/Bangkok',
       };
 
       const response = await axios.post(webhookUrl, payload, {
