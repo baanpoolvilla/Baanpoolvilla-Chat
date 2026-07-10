@@ -36,6 +36,7 @@ export default function BroadcastComposer({ onDone, broadcastId, initialData }: 
   const [scheduledAt, setScheduledAt] = useState(
     initialData?.scheduledAt ? new Date(initialData.scheduledAt).toISOString().slice(0, 16) : ''
   );
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [sending, setSending] = useState(false);
   const [estimatedCount, setEstimatedCount] = useState<number | undefined>();
   const [error, setError] = useState('');
@@ -87,6 +88,43 @@ export default function BroadcastComposer({ onDone, broadcastId, initialData }: 
 
   const handlePlatformsChange = (platforms: string[]) => {
     setSelectedPlatforms(platforms);
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('กรุณาเลือกไฟล์รูปภาพ');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('รูปภาพต้องมีขนาดไม่เกิน 10 MB');
+      e.target.value = '';
+      return;
+    }
+    setError('');
+    setUploadingImage(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await api.post('/api/media/upload', { data: base64, mimeType: file.type });
+      const url = res.data?.data?.url;
+      if (!url) throw new Error('อัปโหลดไม่สำเร็จ');
+      setImageUrl(url);
+    } catch (err: unknown) {
+      const msg = axios.isAxiosError(err)
+        ? (err.response?.data?.error || err.message)
+        : (err instanceof Error ? err.message : 'อัปโหลดรูปไม่สำเร็จ');
+      setError(`อัปโหลดรูปไม่สำเร็จ: ${msg}`);
+    } finally {
+      setUploadingImage(false);
+      e.target.value = '';
+    }
   };
 
   const handleSubmit = async (sendNow: boolean) => {
@@ -215,22 +253,50 @@ export default function BroadcastComposer({ onDone, broadcastId, initialData }: 
             </p>
           </div>
 
-          {/* Image URL */}
+          {/* Image upload */}
           <div>
-            <label
-              htmlFor="broadcast-image"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              URL รูปภาพ (ไม่บังคับ)
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              รูปภาพ (ไม่บังคับ)
             </label>
-            <input
-              id="broadcast-image"
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/image.jpg"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-            />
+            {imageUrl ? (
+              <div className="relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageUrl}
+                  alt="ตัวอย่างรูปภาพ"
+                  className="max-h-48 rounded-lg border border-gray-200 object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={() => setImageUrl('')}
+                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm leading-none transition-colors"
+                  aria-label="ลบรูปภาพ"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 cursor-pointer hover:border-brand-400 hover:bg-gray-50 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageSelect}
+                  disabled={uploadingImage}
+                />
+                {uploadingImage ? (
+                  <span className="text-sm text-gray-500">กำลังอัปโหลด...</span>
+                ) : (
+                  <>
+                    <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <span className="text-sm text-gray-600">คลิกเพื่อเลือกรูปภาพ</span>
+                    <span className="text-xs text-gray-400 mt-1">PNG, JPG, GIF สูงสุด 10 MB</span>
+                  </>
+                )}
+              </label>
+            )}
           </div>
 
           {/* Target Selector */}
@@ -286,7 +352,7 @@ export default function BroadcastComposer({ onDone, broadcastId, initialData }: 
               <button
                 type="button"
                 onClick={() => handleSubmit(false)}
-                disabled={sending}
+                disabled={sending || uploadingImage}
                 className="px-6 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {sending ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
@@ -295,7 +361,7 @@ export default function BroadcastComposer({ onDone, broadcastId, initialData }: 
               <button
                 type="button"
                 onClick={() => handleSubmit(false)}
-                disabled={sending}
+                disabled={sending || uploadingImage}
                 className="px-6 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {sending ? 'กำลังบันทึก...' : 'ตั้งเวลาส่ง'}
@@ -305,7 +371,7 @@ export default function BroadcastComposer({ onDone, broadcastId, initialData }: 
                 <button
                   type="button"
                   onClick={() => handleSubmit(false)}
-                  disabled={sending}
+                  disabled={sending || uploadingImage}
                   className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   บันทึกแบบร่าง
@@ -313,7 +379,7 @@ export default function BroadcastComposer({ onDone, broadcastId, initialData }: 
                 <button
                   type="button"
                   onClick={() => handleSubmit(true)}
-                  disabled={sending}
+                  disabled={sending || uploadingImage}
                   className="px-6 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {sending ? 'กำลังส่ง...' : 'ส่งทันที'}
