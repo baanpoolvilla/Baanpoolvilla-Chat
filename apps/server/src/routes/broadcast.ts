@@ -1,14 +1,14 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { BroadcastService } from '../services/BroadcastService';
-import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middleware/auth';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { logger } from '../lib/logger';
 
 const router = Router();
 
 router.use(authMiddleware());
 
-router.post('/estimate', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/estimate', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const schema = z.object({
       targetType: z.enum(['ALL', 'BY_TAG', 'BY_PLATFORM', 'CUSTOM']),
@@ -69,7 +69,7 @@ const createBroadcastSchema = z.object({
   scheduledAt: z.string().datetime().optional(),
 });
 
-router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = createBroadcastSchema.parse(req.body);
     const broadcast = await BroadcastService.create({
@@ -88,7 +88,7 @@ router.post('/', requireChatWriteAccess, async (req: AuthRequest, res: Response)
   }
 });
 
-router.post('/:id/send', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/:id/send', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const broadcast = await BroadcastService.send(req.params.id);
     res.json(broadcast);
@@ -109,7 +109,7 @@ const updateBroadcastSchema = z.object({
   scheduledAt: z.string().datetime().nullable().optional(),
 });
 
-router.put('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = updateBroadcastSchema.parse(req.body);
     const broadcast = await BroadcastService.update(req.params.id, {
@@ -132,7 +132,7 @@ router.put('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Respons
   }
 });
 
-router.delete('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await BroadcastService.deleteById(req.params.id);
     res.status(204).send();

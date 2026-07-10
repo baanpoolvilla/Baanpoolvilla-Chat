@@ -41,7 +41,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const admin = useAuth((s) => s.admin);
   const isSuperAdmin = admin?.role === 'SUPER_ADMIN';
   const visibleNavItems = isChatViewerRole(admin?.role)
-    ? navItems.filter((item) => item.href === '/conversations')
+    ? navItems.filter((item) => item.href === '/conversations' || item.href === '/broadcast')
     : navItems;
 
   const inner = (

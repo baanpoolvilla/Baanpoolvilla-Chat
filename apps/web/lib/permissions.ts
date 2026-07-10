@@ -19,5 +19,10 @@ export function canAccessDashboardPath(role: AdminRole | string | null | undefin
     return true;
   }
 
-  return pathname === '/conversations' || pathname.startsWith('/conversations/');
+  return (
+    pathname === '/conversations' ||
+    pathname.startsWith('/conversations/') ||
+    pathname === '/broadcast' ||
+    pathname.startsWith('/broadcast/')
+  );
 }
