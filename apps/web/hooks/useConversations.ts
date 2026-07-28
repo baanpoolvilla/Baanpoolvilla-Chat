@@ -73,6 +73,10 @@ function playNotificationSound() {
   }
 }
 
+// 'replace' shows the loading spinner and resets the list (initial load / filter change),
+// 'append' adds the next page, 'background' silently refreshes without touching scroll.
+type FetchMode = 'replace' | 'append' | 'background';
+
 interface ConversationFilters {
   status?: ConversationStatus;
   platform?: Platform;
@@ -108,7 +112,7 @@ export function useConversations(initialFilters?: ConversationFilters) {
   const { on } = useSocket();
   const isMountedRef = useRef(true);
   const fullRefreshInFlightRef = useRef(false);
-  const queuedFullRefreshRef = useRef(false);
+  const queuedFullRefreshRef = useRef<'replace' | 'background' | null>(null);
   const lastWindowRefreshRef = useRef(0);
   const filtersRef = useRef(filters);
 
@@ -130,13 +134,14 @@ export function useConversations(initialFilters?: ConversationFilters) {
     });
   }, []);
 
-  const fetchConversations = useCallback(async (pageNum = 1, append = false, sourceFilters: ConversationFilters = filtersRef.current) => {
+  const fetchConversations = useCallback(async (pageNum = 1, mode: FetchMode = 'replace', sourceFilters: ConversationFilters = filtersRef.current) => {
     try {
-      if (append) {
+      if (mode === 'append') {
         setIsLoadingMore(true);
-      } else {
+      } else if (mode === 'replace') {
         setIsLoading(true);
       }
+      // 'background' keeps the list mounted (no spinner) so the scroll position survives.
 
       const params = new URLSearchParams();
       if (sourceFilters.status) params.set('status', sourceFilters.status);
@@ -153,56 +158,77 @@ export function useConversations(initialFilters?: ConversationFilters) {
       const incoming = response.data.conversations;
 
       setConversations((prev) => {
-        if (!append) {
+        if (mode === 'replace') {
           return sortByLatestMessage(incoming);
         }
 
-        const existingIds = new Set(prev.map((conversation) => conversation.id));
-        const uniqueIncoming = incoming.filter((conversation) => !existingIds.has(conversation.id));
-        return [...prev, ...uniqueIncoming];
+        if (mode === 'append') {
+          const existingIds = new Set(prev.map((conversation) => conversation.id));
+          const uniqueIncoming = incoming.filter((conversation) => !existingIds.has(conversation.id));
+          return [...prev, ...uniqueIncoming];
+        }
+
+        // Background refresh only re-reads page 1, so merge it over what is already
+        // loaded instead of replacing — dropping pages 2+ would shrink the list and
+        // throw the scroll position back to the top.
+        const incomingIds = new Set(incoming.map((conversation) => conversation.id));
+        const existingById = new Map(prev.map((conversation) => [conversation.id, conversation]));
+        const refreshed = incoming.map((conversation) => {
+          const existing = existingById.get(conversation.id);
+          return existing ? { ...existing, ...conversation } : conversation;
+        });
+        const untouched = prev.filter((conversation) => !incomingIds.has(conversation.id));
+        return sortByLatestMessage([...refreshed, ...untouched]);
       });
-      setPagination(response.data.pagination);
+      setPagination((prev) =>
+        mode === 'background'
+          ? { ...response.data.pagination, page: Math.max(prev.page, response.data.pagination.page) }
+          : response.data.pagination
+      );
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
     } finally {
-      if (append) {
+      if (mode === 'append') {
         setIsLoadingMore(false);
-      } else {
+      } else if (mode === 'replace') {
         setIsLoading(false);
       }
     }
   }, [sortByLatestMessage]);
 
-  const triggerFullRefresh = useCallback(() => {
+  const triggerFullRefresh = useCallback((mode: 'replace' | 'background' = 'replace') => {
     if (fullRefreshInFlightRef.current) {
-      queuedFullRefreshRef.current = true;
+      // A pending 'replace' always wins over a queued 'background'.
+      queuedFullRefreshRef.current = queuedFullRefreshRef.current === 'replace' ? 'replace' : mode;
       return;
     }
 
     fullRefreshInFlightRef.current = true;
-    void fetchConversations(1, false, filtersRef.current).finally(() => {
+    void fetchConversations(1, mode, filtersRef.current).finally(() => {
       fullRefreshInFlightRef.current = false;
 
-      if (queuedFullRefreshRef.current && isMountedRef.current) {
-        queuedFullRefreshRef.current = false;
-        triggerFullRefresh();
+      const queued = queuedFullRefreshRef.current;
+      if (queued && isMountedRef.current) {
+        queuedFullRefreshRef.current = null;
+        triggerFullRefresh(queued);
       }
     });
   }, [fetchConversations]);
 
   useEffect(() => {
-    triggerFullRefresh();
+    triggerFullRefresh('replace');
   }, [filters, triggerFullRefresh]);
 
   const loadMore = useCallback(() => {
     if (isLoading || isLoadingMore) return;
     if (pagination.page >= pagination.totalPages) return;
 
-    void fetchConversations(pagination.page + 1, true);
+    void fetchConversations(pagination.page + 1, 'append');
   }, [fetchConversations, isLoading, isLoadingMore, pagination.page, pagination.totalPages]);
 
+  // Live updates (sockets, tab focus) must never remount the list — always background.
   const refetchLatest = useCallback(() => {
-    triggerFullRefresh();
+    triggerFullRefresh('background');
   }, [triggerFullRefresh]);
 
   const setFilters = useCallback((next: SetStateAction<ConversationFilters>) => {

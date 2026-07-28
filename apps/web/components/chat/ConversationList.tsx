@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import ConversationItem from './ConversationItem';
 import BulkSendModal from './BulkSendModal';
@@ -17,6 +17,8 @@ interface ConversationListProps {
   onContactRenamed?: (contactId: string, displayName: string) => void;
   registerContactRenamer?: (fn: (contactId: string, displayName: string) => void) => void;
 }
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const statusOptions: { value: ConversationStatus | ''; label: string }[] = [
   { value: '', label: 'All' },
@@ -42,6 +44,8 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
   const [noTagsFilter, setNoTagsFilter] = useState(false);
   const listContainerRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const scrollAnchorsRef = useRef<{ id: string; offset: number }[]>([]);
+  const anchorFrameRef = useRef<number | null>(null);
   const admin = useAuth((s) => s.admin);
   const canModifyChat = canWriteChat(admin?.role);
   const { conversations, isLoading, isLoadingMore, hasMore, filters, setFilters, loadMore, updateContactName, markConversationRead } = useConversations();
@@ -140,6 +144,78 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
       observer.disconnect();
     };
   }, [hasMore, loadMore, conversations.length]);
+
+  // Remember where the visible rows sit relative to the viewport, so an incoming
+  // message that reorders the list does not drag the user away from what they read.
+  const captureScrollAnchors = useCallback(() => {
+    const container = listContainerRef.current;
+    if (!container) return;
+
+    if (container.scrollTop <= 0) {
+      scrollAnchorsRef.current = [];
+      return;
+    }
+
+    const containerTop = container.getBoundingClientRect().top;
+    const containerBottom = containerTop + container.clientHeight;
+    const anchors: { id: string; offset: number }[] = [];
+
+    for (const row of Array.from(container.querySelectorAll<HTMLElement>('[data-conversation-id]'))) {
+      const rect = row.getBoundingClientRect();
+      if (rect.bottom <= containerTop) continue;
+      if (rect.top >= containerBottom) break;
+
+      const id = row.dataset.conversationId;
+      if (id) anchors.push({ id, offset: rect.top - containerTop });
+      if (anchors.length >= 8) break;
+    }
+
+    scrollAnchorsRef.current = anchors;
+  }, []);
+
+  const handleListScroll = useCallback(() => {
+    if (anchorFrameRef.current !== null) return;
+
+    anchorFrameRef.current = window.requestAnimationFrame(() => {
+      anchorFrameRef.current = null;
+      captureScrollAnchors();
+    });
+  }, [captureScrollAnchors]);
+
+  useEffect(() => {
+    return () => {
+      if (anchorFrameRef.current !== null) {
+        window.cancelAnimationFrame(anchorFrameRef.current);
+      }
+    };
+  }, []);
+
+  const conversationOrderKey = conversations.map((conversation) => conversation.id).join('|');
+
+  useIsomorphicLayoutEffect(() => {
+    const container = listContainerRef.current;
+    const anchors = scrollAnchorsRef.current;
+    if (!container || anchors.length === 0 || container.scrollTop <= 0) return;
+
+    const containerTop = container.getBoundingClientRect().top;
+    const deltas: number[] = [];
+
+    for (const anchor of anchors) {
+      const row = container.querySelector<HTMLElement>(`[data-conversation-id="${anchor.id}"]`);
+      if (!row) continue;
+      deltas.push(row.getBoundingClientRect().top - containerTop - anchor.offset);
+    }
+
+    if (deltas.length === 0) return;
+
+    // Median, so the single row that jumped to the top of the list is ignored.
+    deltas.sort((left, right) => left - right);
+    const shift = deltas[Math.floor(deltas.length / 2)];
+    if (Math.abs(shift) < 1) return;
+
+    container.scrollTop += shift;
+    captureScrollAnchors();
+  }, [conversationOrderKey, captureScrollAnchors]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -296,7 +372,11 @@ export default function ConversationList({ activeId, onSelect, registerContactRe
       </div>
 
       {/* List */}
-      <div ref={listContainerRef} className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+      <div
+        ref={listContainerRef}
+        onScroll={handleListScroll}
+        className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]"
+      >
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />

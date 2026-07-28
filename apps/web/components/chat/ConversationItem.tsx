@@ -23,8 +23,12 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
 
   const hasActionTag = tags?.some(ct => ct.tag.name === 'ดำเนินการ');
 
+  // Marks the outermost node of each row so the list can anchor scroll position to it.
+  const anchorAttrs = { 'data-conversation-id': conversation.id };
+
   const button = (
     <button
+      {...(hasActionTag ? {} : anchorAttrs)}
       onClick={() => onSelect(conversation)}
       className={cn(
         'flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors sm:px-3 sm:py-3',
@@ -127,6 +131,7 @@ function ConversationItem({ conversation, isActive, onSelect }: ConversationItem
   if (hasActionTag) {
     return (
       <div
+        {...anchorAttrs}
         className="relative overflow-hidden rounded-[10px] p-[2px]"
         style={{ boxShadow: '0 0 10px rgba(34, 197, 94, 0.35), 0 0 3px rgba(34, 197, 94, 0.5)' }}
       >
