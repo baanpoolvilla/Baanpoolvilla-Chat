@@ -93,9 +93,16 @@ const STICKER_FAVORITES_KEY = 'lineStickerFavorites';
 const MAX_ATTACHMENTS = 10;
 
 interface PendingAttachment {
-  file: File;
+  // null when the media is already on the server (e.g. picked from a quick reply)
+  file: File | null;
   previewUrl: string;
   contentType: 'IMAGE' | 'VIDEO' | 'FILE';
+  // Already-uploaded URL — send as-is instead of re-uploading
+  remoteUrl?: string;
+}
+
+function revokePreview(previewUrl: string) {
+  if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
 }
 
 export default function MessageInput({ onSend, disabled, platform, replyingTo, onCancelReply, customerName }: MessageInputProps) {
@@ -131,7 +138,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
   useEffect(() => {
     return () => {
       setPendingAttachments((prev) => {
-        prev.forEach((att) => { if (att.previewUrl) URL.revokeObjectURL(att.previewUrl); });
+        prev.forEach((att) => { if (att.previewUrl) revokePreview(att.previewUrl); });
         return prev;
       });
     };
@@ -140,7 +147,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
   const removeAttachment = useCallback((index: number) => {
     setPendingAttachments((prev) => {
       const att = prev[index];
-      if (att?.previewUrl) URL.revokeObjectURL(att.previewUrl);
+      if (att?.previewUrl) revokePreview(att.previewUrl);
       return prev.filter((_, i) => i !== index);
     });
     setSendError(null);
@@ -148,7 +155,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
 
   const clearAllAttachments = useCallback(() => {
     setPendingAttachments((prev) => {
-      prev.forEach((att) => { if (att.previewUrl) URL.revokeObjectURL(att.previewUrl); });
+      prev.forEach((att) => { if (att.previewUrl) revokePreview(att.previewUrl); });
       return [];
     });
     setSendError(null);
@@ -176,7 +183,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
       const combined = [...prev, ...newAttachments];
       // Revoke URLs of excess entries
       if (combined.length > MAX_ATTACHMENTS) {
-        combined.slice(MAX_ATTACHMENTS).forEach((att) => { if (att.previewUrl) URL.revokeObjectURL(att.previewUrl); });
+        combined.slice(MAX_ATTACHMENTS).forEach((att) => { if (att.previewUrl) revokePreview(att.previewUrl); });
         return combined.slice(0, MAX_ATTACHMENTS);
       }
       return combined;
@@ -196,15 +203,21 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
           const att = pendingAttachments[i];
           let mediaUrl: string;
           try {
-            const base64 = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
-              reader.onerror = reject;
-              reader.readAsDataURL(att.file);
-            });
-            const uploadRes = await api.post('/api/media/upload', { data: base64, mimeType: att.file.type });
-            mediaUrl = uploadRes.data?.data?.url;
-            if (!mediaUrl) throw new Error('No URL returned from upload');
+            if (att.remoteUrl) {
+              // Already uploaded (quick reply image) — reuse the stored URL.
+              mediaUrl = att.remoteUrl;
+            } else {
+              const file = att.file!;
+              const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+              });
+              const uploadRes = await api.post('/api/media/upload', { data: base64, mimeType: file.type });
+              mediaUrl = uploadRes.data?.data?.url;
+              if (!mediaUrl) throw new Error('No URL returned from upload');
+            }
           } catch (uploadErr: unknown) {
             const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
             setSendError(`ไม่สามารถอัปโหลดรูปที่ ${i + 1}: ${msg}`);
@@ -213,7 +226,7 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
           // First item: use text as caption (if any) and attach replyTo
           const caption = i === 0 && trimmed
             ? trimmed
-            : att.contentType === 'VIDEO' ? '[Video]' : att.contentType === 'FILE' ? att.file.name : '[Image]';
+            : att.contentType === 'VIDEO' ? '[Video]' : att.contentType === 'FILE' ? (att.file?.name ?? '[File]') : '[Image]';
           await onSend(caption, att.contentType, mediaUrl, i === 0 ? replyingTo?.id : undefined);
         }
         clearAllAttachments();
@@ -265,11 +278,24 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
     }
   };
 
-  const handleSelectQuickReply = (text: string) => {
-    const nextContent = text.slice(0, maxChars);
-    if (!nextContent.trim() || disabled) return;
+  const handleSelectQuickReply = (text: string, mediaUrl?: string | null) => {
+    if (disabled) return;
+
+    // '[Image]' is the placeholder an image-only quick reply stores as its content.
+    const nextContent = mediaUrl && text === '[Image]' ? '' : text.slice(0, maxChars);
+    if (!nextContent.trim() && !mediaUrl) return;
+
     setSendError(null);
     setContent(nextContent);
+
+    if (mediaUrl) {
+      setPendingAttachments((prev) =>
+        prev.length >= MAX_ATTACHMENTS
+          ? prev
+          : [...prev, { file: null, previewUrl: mediaUrl, contentType: 'IMAGE', remoteUrl: mediaUrl }]
+      );
+    }
+
     setShowQuickReplies(false);
     requestAnimationFrame(() => {
       if (!textareaRef.current) return;

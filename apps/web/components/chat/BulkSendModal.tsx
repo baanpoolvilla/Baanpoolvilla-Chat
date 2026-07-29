@@ -15,8 +15,15 @@ interface BulkSendModalProps {
 type SendResult = { conversationId: string; success: boolean; error?: string };
 
 interface PendingImage {
-  file: File;
+  // null when the image is already on the server (picked from a quick reply)
+  file: File | null;
   previewUrl: string;
+  // Already-uploaded URL — send as-is instead of re-uploading
+  remoteUrl?: string;
+}
+
+function revokePreview(previewUrl: string) {
+  if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
 }
 
 const MAX_IMAGES = 10;
@@ -96,7 +103,7 @@ export default function BulkSendModal({ onClose }: BulkSendModalProps) {
   useEffect(() => {
     return () => {
       setImages((prev) => {
-        prev.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+        prev.forEach((img) => revokePreview(img.previewUrl));
         return prev;
       });
     };
@@ -120,7 +127,7 @@ export default function BulkSendModal({ onClose }: BulkSendModalProps) {
     setImages((prev) => {
       const combined = [...prev, ...picked];
       if (combined.length > MAX_IMAGES) {
-        combined.slice(MAX_IMAGES).forEach((img) => URL.revokeObjectURL(img.previewUrl));
+        combined.slice(MAX_IMAGES).forEach((img) => revokePreview(img.previewUrl));
         setSendError(`แนบรูปได้สูงสุด ${MAX_IMAGES} รูป`);
         return combined.slice(0, MAX_IMAGES);
       }
@@ -130,10 +137,23 @@ export default function BulkSendModal({ onClose }: BulkSendModalProps) {
 
   const removeImage = (index: number) => {
     setImages((prev) => {
-      URL.revokeObjectURL(prev[index].previewUrl);
+      revokePreview(prev[index].previewUrl);
       return prev.filter((_, i) => i !== index);
     });
     setSendError(null);
+  };
+
+  const handleSelectQuickReply = (text: string, mediaUrl?: string | null) => {
+    // '[Image]' is the placeholder an image-only quick reply stores as its content.
+    setContent(mediaUrl && text === '[Image]' ? '' : text);
+
+    if (mediaUrl) {
+      setImages((prev) =>
+        prev.length >= MAX_IMAGES ? prev : [...prev, { file: null, previewUrl: mediaUrl, remoteUrl: mediaUrl }]
+      );
+    }
+
+    setShowQuickReplies(false);
   };
 
   const handleFilePick = (e: ChangeEvent<HTMLInputElement>) => {
@@ -166,12 +186,19 @@ export default function BulkSendModal({ onClose }: BulkSendModalProps) {
       // Upload each image once and reuse its URL for every conversation.
       const mediaUrls: string[] = [];
       for (let i = 0; i < images.length; i++) {
+        const image = images[i];
+        if (image.remoteUrl) {
+          // Already uploaded (quick reply image) — reuse the stored URL.
+          mediaUrls.push(image.remoteUrl);
+          continue;
+        }
+
         setUploadProgress({ current: i + 1, total: images.length });
         try {
-          const base64 = await readAsBase64(images[i].file);
+          const base64 = await readAsBase64(image.file!);
           const uploadRes = await api.post('/api/media/upload', {
             data: base64,
-            mimeType: images[i].file.type,
+            mimeType: image.file!.type,
           });
           const url = uploadRes.data?.data?.url;
           if (!url) throw new Error('เซิร์ฟเวอร์ไม่ได้ส่ง URL กลับมา');
@@ -385,10 +412,7 @@ export default function BulkSendModal({ onClose }: BulkSendModalProps) {
                     </button>
                     {showQuickReplies && (
                       <QuickReplyPicker
-                        onSelect={(text) => {
-                          setContent(text);
-                          setShowQuickReplies(false);
-                        }}
+                        onSelect={handleSelectQuickReply}
                         onClose={() => setShowQuickReplies(false)}
                         className="absolute right-0 top-full z-50 mt-1 w-80 rounded-xl border border-gray-200 bg-white shadow-xl"
                       />

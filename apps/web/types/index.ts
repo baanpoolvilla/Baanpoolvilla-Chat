@@ -192,6 +192,7 @@ export interface QuickReply {
   id: string;
   title: string;
   content: string;
+  mediaUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }

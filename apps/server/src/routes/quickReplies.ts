@@ -10,6 +10,9 @@ router.use(authMiddleware());
 const quickReplySchema = z.object({
   title: z.string().min(1).max(100),
   content: z.string().min(1).max(5000),
+  // Image-only templates store '[Image]' as content — the same sentinel the
+  // platform services use to mean "no caption".
+  mediaUrl: z.string().url().nullable().optional(),
 });
 
 // GET /api/quick-replies
@@ -45,7 +48,8 @@ router.put('/:id', requireChatWriteAccess, async (req: AuthRequest, res: Respons
     const data = quickReplySchema.parse(req.body);
     const item = await prisma.quickReply.update({
       where: { id: req.params.id },
-      data,
+      // The client always PUTs the whole record, so a missing mediaUrl means "removed".
+      data: { ...data, mediaUrl: data.mediaUrl ?? null },
     });
     res.json({ data: item });
   } catch (error) {
