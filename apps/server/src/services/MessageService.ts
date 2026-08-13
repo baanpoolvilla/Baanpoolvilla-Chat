@@ -5,6 +5,7 @@ import { getSocketIO } from '../lib/socket';
 import { logger } from '../lib/logger';
 import { AiBotService } from './AiBotService';
 import { conversationSummarySelect } from './ConversationService';
+import { SystemSettingService } from './SystemSettingService';
 
 export const messageReplyPreviewSelect = {
   id: true,
@@ -150,6 +151,9 @@ export class MessageService {
         }
       }
 
+      // ค่าเริ่มต้นของแชทใหม่ (บอทตอบ / แอดมินตอบ) — อ่านนอก transaction เพราะมี cache อยู่แล้ว
+      const newConversationIsBot = await SystemSettingService.getNewConversationIsBot();
+
       const result = await prisma.$transaction(async (tx) => {
         let platformContact = await tx.platformContact.findUnique({
           where: {
@@ -218,7 +222,7 @@ export class MessageService {
               platform: incoming.platform,
               channelId: incoming.channelId,
               status: 'OPEN',
-              isBot: false,
+              isBot: newConversationIsBot,
               lastMessage: incoming.content.substring(0, 200),
               lastMsgAt: new Date(),
               unreadCount: 1,
@@ -297,7 +301,7 @@ export class MessageService {
       }
 
       if (result.conversation.isBot) {
-        AiBotService.reply(result.conversation.id, incoming.content, result.contact.displayName, incoming.platform).catch((err) => {
+        AiBotService.reply(result.conversation.id, incoming.content, result.contact.displayName, incoming.platform, incoming.mediaUrl, incoming.contentType).catch((err) => {
           logger.error('AI bot reply failed', { error: err.message, conversationId: result.conversation.id });
         });
       } else {

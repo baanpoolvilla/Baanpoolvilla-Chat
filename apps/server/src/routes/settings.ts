@@ -5,6 +5,8 @@ import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middlewa
 import { logger } from '../lib/logger';
 import { Platform, Prisma } from '@prisma/client';
 import { LineService } from '../services/platforms/LineService';
+import { SystemSettingService } from '../services/SystemSettingService';
+import { getSocketIO } from '../lib/socket';
 
 const router = Router();
 router.use(authMiddleware());
@@ -150,6 +152,47 @@ router.put('/platforms/:id', requireChatWriteAccess, async (req: AuthRequest, re
     }
     logger.error('Update platform config error', { error });
     res.status(500).json({ error: 'Failed to update platform config' });
+  }
+});
+
+// ── Chat defaults ──────────────────────────────────────────────────────────
+
+// GET /api/settings/chat
+router.get('/chat', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const settings = await SystemSettingService.getChatSettings();
+    res.json({ data: settings });
+  } catch (error) {
+    logger.error('Get chat settings error', { error });
+    res.status(500).json({ error: 'Failed to get chat settings' });
+  }
+});
+
+const chatSettingsSchema = z.object({
+  newConversationBot: z.boolean(),
+});
+
+// PUT /api/settings/chat
+router.put('/chat', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = chatSettingsSchema.parse(req.body);
+    const settings = await SystemSettingService.updateChatSettings(data);
+
+    // แจ้งหน้าจออื่นที่เปิดค้างไว้ ให้เห็นค่าล่าสุดทันที
+    try {
+      getSocketIO().emit('settings:chat', settings);
+    } catch {
+      // socket ยังไม่พร้อม — ไม่ใช่เรื่องคอขาดบาดตาย
+    }
+
+    res.json({ data: settings });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    logger.error('Update chat settings error', { error });
+    res.status(500).json({ error: 'Failed to update chat settings' });
   }
 });
 

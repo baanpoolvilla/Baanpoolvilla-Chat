@@ -12,6 +12,7 @@ import {
   Shield,
   Link2,
   KeyRound,
+  Bot,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +27,7 @@ const navItems = [
 ];
 
 const settingsItems = [
+  { href: '/settings/chat', label: 'ตั้งค่าแชท', icon: Bot },
   { href: '/settings/integrations', label: 'เชื่อมต่อระบบ', icon: Link2 },
   { href: '/settings/password', label: 'เปลี่ยนรหัสผ่าน', icon: KeyRound },
   { href: '/settings/admins', label: 'ผู้ดูแล', icon: Shield },

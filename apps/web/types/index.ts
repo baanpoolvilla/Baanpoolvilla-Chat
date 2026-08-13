@@ -252,6 +252,7 @@ export interface ServerToClientEvents {
   'bot:typing': (data: { conversationId: string }) => void;
   'conversation:read': (data: { conversationId: string; admin: Pick<Admin, 'id' | 'name' | 'avatar'>; readAt: string }) => void;
   'message:updated': (message: Message) => void;
+  'settings:chat': (settings: { newConversationBot: boolean }) => void;
   'error': (data: { message: string }) => void;
 }
 
