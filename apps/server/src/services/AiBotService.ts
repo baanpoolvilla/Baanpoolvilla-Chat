@@ -90,13 +90,13 @@ export class AiBotService {
     logger.info('Bot reply delivered', { conversationId, platform: conversation.platform });
   }
 
-  static async reply(conversationId: string, customerMessage: string, contactName?: string, platform?: Platform): Promise<void> {
+  static async reply(conversationId: string, customerMessage: string, contactName?: string, platform?: Platform, mediaUrl?: string | null, contentType?: string): Promise<void> {
     try {
       // ─── ถ้ามี N8N_WEBHOOK_URL → ส่งไป n8n แทน (fire-and-forget) ──────────
       const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
       logger.info('AiBotService.reply called', { conversationId, n8nWebhookUrl: n8nWebhookUrl ? 'SET' : 'NOT SET' });
       if (n8nWebhookUrl) {
-        await AiBotService.forwardToN8n(n8nWebhookUrl, conversationId, customerMessage, contactName, platform);
+        await AiBotService.forwardToN8n(n8nWebhookUrl, conversationId, customerMessage, contactName, platform, mediaUrl, contentType);
         return;
       }
 
@@ -241,6 +241,8 @@ export class AiBotService {
     customerMessage: string,
     contactName?: string,
     platform?: Platform,
+    mediaUrl?: string | null,
+    contentType?: string,
   ): Promise<void> {
     try {
       // ดึง history 20 ข้อความล่าสุดเพื่อส่งให้ n8n
@@ -263,6 +265,8 @@ export class AiBotService {
         message: customerMessage,
         contactName: contactName ?? 'Customer',
         platform: platform ?? 'LINE',
+        mediaUrl: mediaUrl ?? null,
+        contentType: contentType ?? 'TEXT',
         history,
         currentDate: now.toISOString().split('T')[0],
         currentDatetime: now.toISOString(),
