@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { isChatViewerRole } from '@/lib/permissions';
+import { canAccessSettingsPath, isChatViewerRole } from '@/lib/permissions';
 
 const navItems = [
   { href: '/dashboard', label: 'แดชบอร์ด', icon: LayoutDashboard },
@@ -41,10 +41,11 @@ interface SidebarProps {
 export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const admin = useAuth((s) => s.admin);
-  const isSuperAdmin = admin?.role === 'SUPER_ADMIN';
   const visibleNavItems = isChatViewerRole(admin?.role)
     ? navItems.filter((item) => item.href === '/conversations' || item.href === '/broadcast')
     : navItems;
+  // SUPER_ADMIN เห็นทุกหน้าตั้งค่า, ADMIN เห็นเฉพาะหน้าที่เปิดให้ (ตั้งค่าแชท)
+  const visibleSettingsItems = settingsItems.filter((item) => canAccessSettingsPath(admin?.role, item.href));
 
   const inner = (
     <aside className="flex h-full w-64 flex-shrink-0 flex-col border-r border-slate-900/60 bg-slate-950 text-slate-100">
@@ -88,10 +89,10 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
           );
         })}
 
-        {isSuperAdmin && (
+        {visibleSettingsItems.length > 0 && (
           <>
             <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">ตั้งค่า</p>
-            {settingsItems.map((item) => {
+            {visibleSettingsItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
               const Icon = item.icon;
               return (

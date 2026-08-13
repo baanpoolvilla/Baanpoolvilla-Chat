@@ -14,6 +14,15 @@ export function getDefaultDashboardRoute(role?: AdminRole | string | null): stri
   return isChatViewerRole(role) ? '/conversations' : '/dashboard';
 }
 
+// หน้าตั้งค่าที่ ADMIN เข้าได้ด้วย (นอกนั้นสงวนไว้ให้ SUPER_ADMIN)
+const ADMIN_ACCESSIBLE_SETTINGS = ['/settings/chat'];
+
+export function canAccessSettingsPath(role: AdminRole | string | null | undefined, pathname: string): boolean {
+  if (role === 'SUPER_ADMIN') return true;
+  if (role === 'ADMIN') return ADMIN_ACCESSIBLE_SETTINGS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return false;
+}
+
 export function canAccessDashboardPath(role: AdminRole | string | null | undefined, pathname: string): boolean {
   if (!isChatViewerRole(role)) {
     return true;

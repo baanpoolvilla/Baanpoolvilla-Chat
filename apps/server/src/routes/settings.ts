@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { authMiddleware, AuthRequest, requireChatWriteAccess } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requireChatWriteAccess, requireAdmin } from '../middleware/auth';
 import { logger } from '../lib/logger';
 import { Platform, Prisma } from '@prisma/client';
 import { LineService } from '../services/platforms/LineService';
@@ -173,7 +173,7 @@ const chatSettingsSchema = z.object({
 });
 
 // PUT /api/settings/chat
-router.put('/chat', requireChatWriteAccess, async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/chat', requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = chatSettingsSchema.parse(req.body);
     const settings = await SystemSettingService.updateChatSettings(data);
