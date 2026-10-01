@@ -17,6 +17,8 @@ model Admin {
   isOnline     Boolean                  @default(false)
   lastSeenAt   DateTime?
   createdAt    DateTime                 @default(now())
+  /// SmartBoss user this account is linked to (single sign-on, see routes/auth.ts /sso)
+  smartbossUserId String?               @unique
   messages     Message[]
   assignments  ConversationAssignment[]
   reads        ConversationRead[]

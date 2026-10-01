@@ -9,6 +9,8 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  /** Store a session issued by something other than the password form (SmartBoss SSO). */
+  setSession: (data: LoginResponse) => void;
   logout: () => Promise<void>;
   loadSession: () => void;
   refreshProfile: () => Promise<void>;
@@ -43,12 +45,13 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   login: async (email: string, password: string) => {
     const response = await api.post<LoginResponse>('/api/auth/login', { email, password });
-    const { accessToken, refreshToken, admin } = response.data;
+    get().setSession(response.data);
+  },
 
+  setSession: ({ accessToken, refreshToken, admin }: LoginResponse) => {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('admin', JSON.stringify(admin));
-
     set({ admin, isAuthenticated: true, isLoading: false });
   },
 
