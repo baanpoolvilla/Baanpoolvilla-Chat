@@ -1,8 +1,29 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { AdminRole } from '@/types';
 import { LogOut, Bell, User, Menu } from 'lucide-react';
+
+/**
+ * เปิดอยู่ในกรอบของ SmartBoss (app.smartboss.in.th → ขาย & การตลาด) — SmartBoss มีแถบบน
+ * (แจ้งเตือน/โปรไฟล์/ออกจากระบบ) อยู่แล้ว แถบของเราจะซ้ำ เลยซ่อน
+ * ฝั่งเซิร์ฟเวอร์ = false (ไม่อยู่ในกรอบ) แล้วเบราว์เซอร์ค่อยอัปเดต — ไม่เพี้ยนตอน hydrate
+ */
+function isEmbedded(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true; // เข้าถึง window.top ไม่ได้ = อยู่ในกรอบของเว็บอื่นแน่นอน
+  }
+}
+function useEmbedded(): boolean {
+  return useSyncExternalStore(
+    () => () => {},
+    isEmbedded,
+    () => false
+  );
+}
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -17,6 +38,22 @@ export default function Header({ onMenuClick }: HeaderProps) {
     CHAT_VIEWER: 'Chat Viewer',
   };
   const roleLabel = admin?.role ? roleLabels[admin.role] ?? admin.role : '';
+  const embedded = useEmbedded();
+
+  // ในกรอบของ SmartBoss: คอมไม่ต้องมีแถบนี้เลย · มือถือเหลือแค่ปุ่มเมนู (☰) ไว้เปิดแถบข้าง
+  if (embedded) {
+    return (
+      <header className="sticky top-0 z-30 flex h-12 items-center border-b border-orange-100 bg-white/85 px-2 backdrop-blur md:hidden">
+        <button
+          onClick={onMenuClick}
+          className="rounded-lg p-2 text-slate-600 hover:bg-orange-50"
+          aria-label="เปิดเมนู"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-orange-100 bg-white/85 px-4 backdrop-blur md:px-6">
