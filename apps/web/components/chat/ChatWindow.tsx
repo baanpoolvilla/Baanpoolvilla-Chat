@@ -202,7 +202,6 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   };
 
   const jumpToMessage = async (messageId: string, targetConversationId?: string) => {
-    console.info('[reply-jump] click', { messageId, targetConversationId, currentConversationId: conversationId });
     // ข้อความต้นฉบับอยู่คนละห้อง (เช่นห้องเก่าของลูกค้าคนเดิมที่เคยกด "เสร็จสิ้น")
     // → เปิดห้องนั้นพร้อม ?msg= แล้วให้ห้องนั้นเลื่อนไปที่ข้อความเอง
     if (targetConversationId && targetConversationId !== conversationId) {
@@ -231,19 +230,6 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
         jumpLockUntilRef.current = 0;
         showJumpNotice('ไม่พบข้อความต้นฉบับ (อาจถูกลบไปแล้ว)');
         return;
-      }
-      // log ไว้วินิจฉัย ถ้าจอยังไม่เลื่อน: ดู Console หา [reply-jump]
-      {
-        const c = scrollContainerRef.current;
-        const el = c?.querySelector(`[data-msg-id="${messageId}"]`) as HTMLElement | null;
-        const snapshot = () => ({
-          scrollTop: c?.scrollTop,
-          scrollHeight: c?.scrollHeight,
-          clientHeight: c?.clientHeight,
-          elTopInView: el && c ? Math.round(el.getBoundingClientRect().top - c.getBoundingClientRect().top) : null,
-        });
-        console.info('[reply-jump] after scroll', messageId, snapshot());
-        setTimeout(() => console.info('[reply-jump] +1.5s', messageId, snapshot()), 1500);
       }
       // รูปรอบ ๆ ข้อความอาจยังโหลดไม่เสร็จ ตำแหน่งจะขยับ → จัดให้อยู่กลางจออีกรอบ
       jumpLockUntilRef.current = Date.now() + 2000;
