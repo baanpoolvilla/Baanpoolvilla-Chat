@@ -35,6 +35,10 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const shouldJumpToBottomRef = useRef(true);
   const intendedBottomRef = useRef(true);
   const isProgrammaticScrollRef = useRef(false);
+  // ระหว่างเลื่อนไปข้อความต้นฉบับ (กดกล่องตอบกลับ/ปักหมุด) ห้ามโค้ดอื่นดึงจอกลับลงล่างสุด
+  // เดิม ResizeObserver เห็นรูปโหลดเสร็จแล้ว scrollToBottom() ทับ → เห็นแค่ไฮไลต์แต่จอไม่เลื่อน
+  const jumpLockUntilRef = useRef(0);
+  const isJumpLocked = () => Date.now() < jumpLockUntilRef.current;
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -102,7 +106,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     if (!container || !wrapper) return;
 
     const observer = new ResizeObserver(() => {
-      if (intendedBottomRef.current) {
+      if (intendedBottomRef.current && !isJumpLocked()) {
         scrollToBottom();
       }
     });
@@ -160,7 +164,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     }
   };
 
-  const scrollToMessage = (messageId: string) => {
+  const scrollToMessage = (messageId: string, behavior: ScrollBehavior = 'smooth') => {
     const el = scrollContainerRef.current?.querySelector(`[data-msg-id="${messageId}"]`) as HTMLElement | null;
     if (!el || !scrollContainerRef.current) return false;
     const container = scrollContainerRef.current;
@@ -169,7 +173,10 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     const relativeTop = elRect.top - containerRect.top + container.scrollTop;
     intendedBottomRef.current = false;
     shouldJumpToBottomRef.current = false;
-    container.scrollTo({ top: relativeTop - container.clientHeight / 2 + el.clientHeight / 2, behavior: 'smooth' });
+    const target = Math.max(0, relativeTop - container.clientHeight / 2 + el.clientHeight / 2);
+    if (Math.abs(container.scrollTop - target) > 4) {
+      container.scrollTo({ top: target, behavior });
+    }
     return true;
   };
 
@@ -194,6 +201,10 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   const jumpToMessage = async (messageId: string) => {
     if (jumpingRef.current) return;
     jumpingRef.current = true;
+    // ล็อกตั้งแต่เริ่ม — ตอนโหลดหน้าเก่าเพิ่ม ความสูงเปลี่ยน ResizeObserver จะดึงลงล่างอีก
+    intendedBottomRef.current = false;
+    shouldJumpToBottomRef.current = false;
+    jumpLockUntilRef.current = Date.now() + 60_000;
     try {
       let found = scrollToMessage(messageId);
       if (!found) {
@@ -206,9 +217,14 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
         }
       }
       if (!found) {
+        jumpLockUntilRef.current = 0;
         showJumpNotice('ไม่พบข้อความต้นฉบับ (อาจถูกลบไปแล้ว)');
         return;
       }
+      // รูปรอบ ๆ ข้อความอาจยังโหลดไม่เสร็จ ตำแหน่งจะขยับ → จัดให้อยู่กลางจออีกรอบ
+      jumpLockUntilRef.current = Date.now() + 2000;
+      setTimeout(() => { if (isJumpLocked()) scrollToMessage(messageId); }, 600);
+      setTimeout(() => { if (isJumpLocked()) scrollToMessage(messageId); }, 1500);
       setJumpNotice(null);
       setFlashMsgId(messageId);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
@@ -290,6 +306,8 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     // Ignore scroll events fired by our own scrollToBottom() calls —
     // only user-initiated scrolls should update intendedBottomRef.
     if (isProgrammaticScrollRef.current) return;
+    // ระหว่างกำลังเลื่อนไปข้อความต้นฉบับ อย่าให้ scroll event ระหว่างทางตั้งค่า "อยู่ล่างสุด" กลับมา
+    if (isJumpLocked()) return;
     const el = scrollContainerRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -505,6 +523,9 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        // ผู้ใช้เลื่อนเองระหว่างกำลังจัดตำแหน่ง → ยกเลิกล็อก (ยกเว้นตอนกำลังโหลดหน้าเก่า)
+        onWheel={() => { if (!jumpingRef.current) jumpLockUntilRef.current = 0; }}
+        onTouchMove={() => { if (!jumpingRef.current) jumpLockUntilRef.current = 0; }}
         className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 md:px-6 md:py-4 flex flex-col"
       >
         {isLoading && messages.length === 0 ? (

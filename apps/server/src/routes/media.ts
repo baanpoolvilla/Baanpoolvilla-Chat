@@ -136,28 +136,36 @@ router.post('/refresh/:messageId', authMiddleware(), async (req: Request, res: R
       return;
     }
 
-    // ไฟล์อยู่บนเซิร์ฟเวอร์เราแล้วและยังมีอยู่ → ไม่ต้องทำอะไร
+    const publicBase = resolvePublicBase(req);
+    const platform = message.conversation.platform;
+    let filename: string | null = null;
+
+    // ไฟล์ยังอยู่บนดิสก์ แต่ลิงก์ใน DB อาจชี้ไปโดเมน/IP เก่า (เช่นสมัยอยู่ Railway หรือ quick tunnel)
+    // → ใช้ชื่อไฟล์เดิมกับโดเมนปัจจุบัน
     if (isLocalUploadUrl(message.mediaUrl)) {
-      const existing = path.join(UPLOAD_DIR, path.basename(message.mediaUrl!));
-      if (fs.existsSync(existing)) {
-        res.json({ data: { url: message.mediaUrl } });
-        return;
-      }
+      const basename = path.basename(new URL(message.mediaUrl!, publicBase).pathname);
+      if (fs.existsSync(path.join(UPLOAD_DIR, basename))) filename = basename;
     }
 
-    if (!message.platformMsgId) {
+    // LINE: เคยโหลดเก็บไว้แล้วในชื่อ line-<messageId>.<ext> (แต่ DB ยังเป็น proxy URL)
+    if (!filename && platform === 'LINE' && message.platformMsgId) {
+      const prefix = `line-${message.platformMsgId}.`;
+      filename = fs.readdirSync(UPLOAD_DIR).find((f) => f.startsWith(prefix) && !f.endsWith('.part')) ?? null;
+    }
+
+    if (!filename && !message.platformMsgId) {
+      logger.info('Media unrecoverable (no local file, no platform id)', { messageId, mediaUrl: message.mediaUrl });
       res.status(410).json({ error: 'Media is no longer available' });
       return;
     }
 
-    let filename: string | null = null;
-    const platform = message.conversation.platform;
-
-    if (platform === 'LINE') {
-      const dl = await LineService.downloadMedia(message.platformMsgId);
+    if (filename) {
+      // already resolved locally
+    } else if (platform === 'LINE') {
+      const dl = await LineService.downloadMedia(message.platformMsgId!);
       filename = dl?.filename ?? null;
     } else if (platform === 'FACEBOOK' || platform === 'INSTAGRAM') {
-      const freshUrl = await fetchFreshMetaAttachmentUrl(message.platformMsgId).catch((err) => {
+      const freshUrl = await fetchFreshMetaAttachmentUrl(message.platformMsgId!).catch((err) => {
         logger.warn('Graph API attachment lookup failed', {
           messageId,
           error: err instanceof Error ? err.message : String(err),
@@ -167,19 +175,22 @@ router.post('/refresh/:messageId', authMiddleware(), async (req: Request, res: R
       if (freshUrl) {
         filename = await saveRemoteMedia(freshUrl, {
           prefix: platform === 'FACEBOOK' ? 'fb' : 'ig',
-          key: message.platformMsgId,
+          key: message.platformMsgId!,
         });
       }
     }
 
     if (!filename) {
+      logger.info('Media unrecoverable', { messageId, platform, mediaUrl: message.mediaUrl });
       res.status(410).json({ error: 'Media is no longer available' });
       return;
     }
 
-    const url = publicUploadUrl(resolvePublicBase(req), filename);
-    await prisma.message.update({ where: { id: message.id }, data: { mediaUrl: url } });
-    logger.info('Recovered expired media', { messageId, platform });
+    const url = publicUploadUrl(publicBase, filename);
+    if (url !== message.mediaUrl) {
+      await prisma.message.update({ where: { id: message.id }, data: { mediaUrl: url } });
+      logger.info('Recovered media', { messageId, platform, from: message.mediaUrl, to: url });
+    }
     res.json({ data: { url } });
   } catch (error) {
     logger.error('Failed to refresh media', {
