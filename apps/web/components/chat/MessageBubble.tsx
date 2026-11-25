@@ -19,7 +19,7 @@ interface MessageBubbleProps {
   canPin?: boolean;
   onContextMenu?: (e: React.MouseEvent, message: Message) => void;
   /** คลิกกล่องข้อความที่ถูกตอบกลับ → เลื่อนไปยังข้อความต้นฉบับ */
-  onReplyClick?: (messageId: string) => void;
+  onReplyClick?: (messageId: string, conversationId?: string) => void;
   highlight?: string;
   isCurrentMatch?: boolean;
   /** ข้อความนี้ส่งต่อเนื่องจากคนเดิม — ซ่อน avatar + ชื่อ ลด margin */
@@ -434,9 +434,9 @@ function MessageBubble({
                 role={canJump ? 'button' : undefined}
                 tabIndex={canJump ? 0 : undefined}
                 title={canJump ? 'ไปที่ข้อความต้นฉบับ' : undefined}
-                onClick={canJump ? (e) => { e.stopPropagation(); onReplyClick!(rm.id); } : undefined}
+                onClick={canJump ? (e) => { e.stopPropagation(); onReplyClick!(rm.id, rm.conversationId); } : undefined}
                 onKeyDown={canJump ? (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onReplyClick!(rm.id); }
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onReplyClick!(rm.id, rm.conversationId); }
                 } : undefined}
                 className={cn(
                   'mb-2 flex items-center gap-2 rounded-xl border-l-2 px-3 py-1.5',

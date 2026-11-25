@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMessages } from '@/hooks/useMessages';
 import { useSocket } from '@/hooks/useSocket';
 import MessageBubble from './MessageBubble';
@@ -29,6 +30,7 @@ interface ChatWindowProps {
 export default function ChatWindow({ conversationId, conversation, isConversationLoading = false, onToggleInfo, contactNameOverride, onCloseChat, onRefreshConversation, onBotToggle }: ChatWindowProps) {
   const { messages, isLoading, hasMore, loadMore, ensureMessageLoaded, sendMessage } = useMessages(conversationId);
   const { on } = useSocket();
+  const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesWrapperRef = useRef<HTMLDivElement>(null);
@@ -198,7 +200,14 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     noticeTimerRef.current = setTimeout(() => setJumpNotice(null), 2500);
   };
 
-  const jumpToMessage = async (messageId: string) => {
+  const jumpToMessage = async (messageId: string, targetConversationId?: string) => {
+    // ข้อความต้นฉบับอยู่คนละห้อง (เช่นห้องเก่าของลูกค้าคนเดิมที่เคยกด "เสร็จสิ้น")
+    // → เปิดห้องนั้นพร้อม ?msg= แล้วให้ห้องนั้นเลื่อนไปที่ข้อความเอง
+    if (targetConversationId && targetConversationId !== conversationId) {
+      showJumpNotice('ข้อความนี้อยู่ในแชทก่อนหน้า กำลังเปิด...');
+      router.push(`/conversations/${targetConversationId}?msg=${encodeURIComponent(messageId)}`);
+      return;
+    }
     if (jumpingRef.current) return;
     jumpingRef.current = true;
     // ล็อกตั้งแต่เริ่ม — ตอนโหลดหน้าเก่าเพิ่ม ความสูงเปลี่ยน ResizeObserver จะดึงลงล่างอีก
@@ -206,14 +215,14 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     shouldJumpToBottomRef.current = false;
     jumpLockUntilRef.current = Date.now() + 60_000;
     try {
-      let found = scrollToMessage(messageId);
+      let found = scrollToMessage(messageId, 'auto');
       if (!found) {
         showJumpNotice('กำลังค้นหาข้อความต้นฉบับ...');
         const loaded = await ensureMessageLoaded(messageId);
         if (loaded) {
           // รอ React วาดข้อความที่เพิ่งโหลดลง DOM ก่อนค่อยเลื่อน
           await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-          found = scrollToMessage(messageId);
+          found = scrollToMessage(messageId, 'auto');
         }
       }
       if (!found) {
@@ -223,8 +232,8 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
       }
       // รูปรอบ ๆ ข้อความอาจยังโหลดไม่เสร็จ ตำแหน่งจะขยับ → จัดให้อยู่กลางจออีกรอบ
       jumpLockUntilRef.current = Date.now() + 2000;
-      setTimeout(() => { if (isJumpLocked()) scrollToMessage(messageId); }, 600);
-      setTimeout(() => { if (isJumpLocked()) scrollToMessage(messageId); }, 1500);
+      setTimeout(() => { if (isJumpLocked()) scrollToMessage(messageId, 'auto'); }, 300);
+      setTimeout(() => { if (isJumpLocked()) scrollToMessage(messageId, 'auto'); }, 900);
       setJumpNotice(null);
       setFlashMsgId(messageId);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
@@ -233,6 +242,29 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
       jumpingRef.current = false;
     }
   };
+
+  // เปิดห้องด้วย ?msg=<id> (มาจากกดกล่องตอบกลับที่อยู่ห้องอื่น) → รอโหลดเสร็จแล้วเลื่อนไปข้อความนั้น
+  const pendingDeepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    pendingDeepLinkRef.current = params.get('msg');
+  }, [conversationId]);
+
+  useEffect(() => {
+    const target = pendingDeepLinkRef.current;
+    if (!target || isLoading || messages.length === 0) return;
+    if (messages[0].conversationId !== conversationId) return;
+    pendingDeepLinkRef.current = null;
+    // ลบ ?msg ออกจาก URL กันเด้งซ้ำตอนรีเฟรช
+    const url = new URL(window.location.href);
+    url.searchParams.delete('msg');
+    window.history.replaceState(window.history.state, '', url.toString());
+    // ปล่อยให้การเลื่อนลงล่างสุดตอนเปิดห้องทำงานก่อน แล้วค่อยกระโดด
+    const t = setTimeout(() => { void jumpToMessage(target); }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, isLoading, messages.length]);
 
   const matchIds = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -275,7 +307,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
       const container = scrollContainerRef.current;
       if (!container) return;
       const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-      if (distanceFromBottom < 300) {
+      if (distanceFromBottom < 300 && !isJumpLocked()) {
         scrollToBottom('smooth');
       }
     }
@@ -488,7 +520,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                   className="flex items-center gap-2 px-4 py-2 hover:bg-amber-100/60"
                 >
                   <button
-                    onClick={() => { void jumpToMessage(msg.id); setPinnedExpanded(false); }}
+                    onClick={() => { void jumpToMessage(msg.id, msg.conversationId); setPinnedExpanded(false); }}
                     className="min-w-0 flex-1 text-left"
                   >
                     <p className="truncate text-xs text-gray-700">{msg.content.slice(0, 80)}</p>
