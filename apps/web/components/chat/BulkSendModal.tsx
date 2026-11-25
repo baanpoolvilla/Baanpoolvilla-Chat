@@ -7,6 +7,7 @@ import type { Conversation } from '@/types';
 import { cn } from '@/lib/utils';
 import PlatformBadge from '@/components/common/PlatformBadge';
 import QuickReplyPicker from './QuickReplyPicker';
+import { uploadMedia, getUploadErrorMessage } from '@/lib/uploadMedia';
 
 interface BulkSendModalProps {
   onClose: () => void;
@@ -27,18 +28,8 @@ function revokePreview(previewUrl: string) {
 }
 
 const MAX_IMAGES = 10;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 // The API caps conversationIds at 50 per request.
 const BULK_BATCH_SIZE = 50;
-
-function readAsBase64(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
-    reader.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
-    reader.readAsDataURL(file);
-  });
-}
 
 function chunk<T>(items: T[], size: number) {
   const batches: T[][] = [];
@@ -116,10 +107,6 @@ export default function BulkSendModal({ onClose }: BulkSendModalProps) {
         setSendError('แนบได้เฉพาะไฟล์รูปภาพ');
         continue;
       }
-      if (file.size > MAX_IMAGE_BYTES) {
-        setSendError(`รูป "${file.name}" ใหญ่เกิน 10 MB`);
-        continue;
-      }
       picked.push({ file, previewUrl: URL.createObjectURL(file) });
     }
     if (picked.length === 0) return;
@@ -195,17 +182,9 @@ export default function BulkSendModal({ onClose }: BulkSendModalProps) {
 
         setUploadProgress({ current: i + 1, total: images.length });
         try {
-          const base64 = await readAsBase64(image.file!);
-          const uploadRes = await api.post('/api/media/upload', {
-            data: base64,
-            mimeType: image.file!.type,
-          });
-          const url = uploadRes.data?.data?.url;
-          if (!url) throw new Error('เซิร์ฟเวอร์ไม่ได้ส่ง URL กลับมา');
-          mediaUrls.push(url);
+          mediaUrls.push(await uploadMedia(image.file!));
         } catch (uploadErr: unknown) {
-          const msg = uploadErr instanceof Error ? uploadErr.message : 'อัปโหลดไม่สำเร็จ';
-          setSendError(`อัปโหลดรูปที่ ${i + 1} ไม่สำเร็จ: ${msg}`);
+          setSendError(`อัปโหลดรูปที่ ${i + 1} ไม่สำเร็จ: ${getUploadErrorMessage(uploadErr)}`);
           return;
         }
       }

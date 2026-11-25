@@ -7,6 +7,33 @@ import { logger } from '../../lib/logger';
 
 const router = Router();
 
+/**
+ * LINE ตอบกลับได้ครั้งเดียวและ (โดยดีฟอลต์) ไม่ส่งซ้ำ — ข้อความที่ ingest พลาด
+ * จะหายถาวร จึงต้อง retry ในโปรเซสก่อน แล้วค่อยยอมแพ้พร้อม log ที่ค้นหาได้
+ */
+async function ingestWithRetry(incoming: IncomingMessage, attempts = 3): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await MessageService.ingest(incoming);
+      if (attempt > 1) {
+        logger.warn('LINE message ingested after retry', {
+          platformMsgId: incoming.platformMsgId,
+          attempt,
+        });
+      }
+      return;
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      logger.warn('LINE ingest attempt failed, retrying', {
+        platformMsgId: incoming.platformMsgId,
+        attempt,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+    }
+  }
+}
+
 function getApiBaseUrl(req: Request): string {
   const forwardedProto = req.headers['x-forwarded-proto']?.toString().split(',')[0].trim();
   const proto = forwardedProto || req.protocol || 'http';
@@ -29,10 +56,32 @@ router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: 
     if (!events || !Array.isArray(events)) return;
     const apiBaseUrl = getApiBaseUrl(req);
 
+    // log ขาเข้าไว้เทียบกับที่บันทึกลง DB — ใช้ยืนยันว่า LINE ส่งมาถึงจริงไหม
+    logger.info('LINE webhook received', {
+      deliveryAttempt: req.headers['x-line-delivery-attempt'] ?? null,
+      events: events.map((e: { type?: string; message?: { id?: string; type?: string } }) => ({
+        type: e?.type,
+        messageId: e?.message?.id,
+        messageType: e?.message?.type,
+      })),
+    });
+
     for (const event of events) {
       if (event.type !== 'message') continue;
 
       try {
+        // แชทกลุ่ม/ห้อง: LINE จะไม่ส่ง userId มาถ้าผู้ใช้ยังไม่ยอมรับ ToS ของ OA
+        // เดิมจะกลายเป็น undefined แล้ว Prisma throw → ข้อความหายทั้งข้อความ
+        const platformUid: string | undefined =
+          event.source?.userId || event.source?.groupId || event.source?.roomId;
+        if (!platformUid) {
+          logger.error('LINE event without any source id — skipped', {
+            messageId: event.message?.id,
+            sourceType: event.source?.type,
+          });
+          continue;
+        }
+
         let content = '';
         let contentType: IncomingMessage['contentType'] = 'TEXT';
         let mediaUrl: string | undefined;
@@ -95,22 +144,25 @@ router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: 
             content = `[${event.message.type}]`;
         }
 
-        let displayName = 'LINE User';
+        let displayName = event.source?.userId ? 'LINE User' : 'LINE Group';
         let avatarUrl: string | undefined;
 
-        try {
-          const profile = await LineService.getProfile(event.source.userId);
-          displayName = profile.displayName;
-          avatarUrl = profile.pictureUrl;
-        } catch (profileError) {
-          logger.warn('Failed to get LINE profile', { userId: event.source.userId });
+        if (event.source?.userId) {
+          try {
+            const profile = await LineService.getProfile(event.source.userId);
+            displayName = profile.displayName;
+            avatarUrl = profile.pictureUrl;
+          } catch (profileError) {
+            // ชื่อไม่ได้ก็ไม่เป็นไร ห้ามให้ข้อความหายเพราะเรื่องนี้
+            logger.warn('Failed to get LINE profile', { userId: event.source.userId });
+          }
         }
 
         const incoming: IncomingMessage = {
           platform: 'LINE',
-          platformUid: event.source.userId,
+          platformUid,
           platformMsgId: event.message.id,
-          channelId: event.source.groupId || event.source.roomId || event.source.userId,
+          channelId: event.source.groupId || event.source.roomId || platformUid,
           displayName,
           avatarUrl,
           content,
@@ -124,9 +176,10 @@ router.post('/', webhookLimiter, verifyLineSignature, async (req: Request, res: 
           },
         };
 
-        await MessageService.ingest(incoming);
+        await ingestWithRetry(incoming);
       } catch (eventError) {
-        logger.error('Failed to process LINE event', {
+        // ถึงตรงนี้ = ข้อความลูกค้าหายจริง ค้นด้วย "LINE MESSAGE LOST" ใน log ได้
+        logger.error('LINE MESSAGE LOST — failed to process event after retries', {
           error: eventError instanceof Error ? eventError.message : String(eventError),
           stack: eventError instanceof Error ? eventError.stack : undefined,
           eventType: event.message?.type,

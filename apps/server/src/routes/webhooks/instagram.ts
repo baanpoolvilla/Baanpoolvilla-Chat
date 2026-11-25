@@ -3,6 +3,7 @@ import { MessageService, IncomingMessage } from '../../services/MessageService';
 import { verifyInstagramSignature } from '../../middleware/webhookVerify';
 import { webhookLimiter } from '../../middleware/rateLimit';
 import { logger } from '../../lib/logger';
+import { persistIncomingMedia } from '../../lib/mediaStore';
 
 const router = Router();
 
@@ -65,6 +66,9 @@ router.post('/', webhookLimiter, verifyInstagramSignature, async (req: Request, 
           }
         }
 
+        // ลิงก์ CDN ของ IG หมดอายุในไม่กี่วัน — โหลดมาเก็บเองก่อนบันทึก
+        mediaUrl = await persistIncomingMedia(req, mediaUrl, { prefix: 'ig', key: event.message.mid });
+
         const incoming: IncomingMessage = {
           platform: 'INSTAGRAM',
           platformUid: senderId,
@@ -74,7 +78,11 @@ router.post('/', webhookLimiter, verifyInstagramSignature, async (req: Request, 
           content,
           contentType,
           mediaUrl,
-          metadata: { event },
+          metadata: {
+            event,
+            // ลูกค้ากด "ตอบกลับ" ข้อความ → ผูก replyToMessage ใน MessageService.ingest
+            quotedMessageId: event.message.reply_to?.mid ?? null,
+          },
         };
 
         await MessageService.ingest(incoming);

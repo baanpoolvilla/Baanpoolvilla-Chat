@@ -7,6 +7,7 @@ import { Platform, Prisma } from '@prisma/client';
 import { LineService } from '../services/platforms/LineService';
 import { SystemSettingService } from '../services/SystemSettingService';
 import { getSocketIO } from '../lib/socket';
+import { invalidateLineCredentials } from '../lib/lineCredentials';
 
 const router = Router();
 router.use(authMiddleware());
@@ -85,6 +86,7 @@ router.post('/platforms', requireChatWriteAccess, async (req: AuthRequest, res: 
         config: configJson,
       },
     });
+    if (data.platform === 'LINE') invalidateLineCredentials();
     res.status(201).json(flattenConfig(config));
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -144,6 +146,7 @@ router.put('/platforms/:id', requireChatWriteAccess, async (req: AuthRequest, re
         config: configJson,
       },
     });
+    if (existing.platform === 'LINE') invalidateLineCredentials();
     res.json(flattenConfig(config));
   } catch (error) {
     if (error instanceof z.ZodError) {

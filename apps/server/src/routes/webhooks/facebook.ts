@@ -3,6 +3,7 @@ import { MessageService, IncomingMessage } from '../../services/MessageService';
 import { FacebookService } from '../../services/platforms/FacebookService';
 import { verifyFacebookSignature } from '../../middleware/webhookVerify';
 import { webhookLimiter } from '../../middleware/rateLimit';
+import { persistIncomingMedia } from '../../lib/mediaStore';
 import { logger } from '../../lib/logger';
 
 const router = Router();
@@ -86,6 +87,9 @@ router.post('/', webhookLimiter, verifyFacebookSignature, async (req: Request, r
           logger.warn('Failed to get Facebook profile', { senderId });
         }
 
+        // ลิงก์ CDN ของ Facebook (lookaside.fbsbx.com) หมดอายุในไม่กี่วัน — โหลดมาเก็บเองก่อนบันทึก
+        mediaUrl = await persistIncomingMedia(req, mediaUrl, { prefix: 'fb', key: event.message.mid });
+
         const incoming: IncomingMessage = {
           platform: 'FACEBOOK',
           platformUid: senderId,
@@ -96,7 +100,11 @@ router.post('/', webhookLimiter, verifyFacebookSignature, async (req: Request, r
           content,
           contentType,
           mediaUrl,
-          metadata: { event },
+          metadata: {
+            event,
+            // ลูกค้ากด "ตอบกลับ" ข้อความ → ผูก replyToMessage ใน MessageService.ingest
+            quotedMessageId: event.message.reply_to?.mid ?? null,
+          },
         };
 
         await MessageService.ingest(incoming);

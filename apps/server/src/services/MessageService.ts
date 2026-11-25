@@ -118,23 +118,29 @@ function formatQuotedOutboundText(content: string, replyMessage?: {
 
 export class MessageService {
   static async ingest(incoming: IncomingMessage): Promise<void> {
+    // key ที่จองไว้ — ต้องคืนถ้า ingest ล้มเหลว ไม่งั้นข้อความที่ LINE ส่งซ้ำมา
+    // จะถูกมองว่า "ซ้ำ" แล้วทิ้งไปอีก 24 ชม. = ข้อความลูกค้าหายถาวร
+    let claimedDedupKey: string | null = null;
+
     try {
       // ── Deduplication: atomic Redis lock first, then DB fallback ──────────
       if (incoming.platformMsgId) {
         let redisOk = false;
         try {
           // SET NX is atomic: only one concurrent caller wins; others get null → skip
-          const acquired = await redis.set(
-            `dedup:msg:${incoming.platformMsgId}`,
-            '1',
-            'EX',
-            86400,
-            'NX',
-          );
+          // ioredis ตั้ง maxRetriesPerRequest: null → ถ้า Redis ล่ม คำสั่งจะค้างรอ reconnect ตลอดไป
+          // ใส่ timeout กันไว้ ไม่งั้นข้อความขาเข้าทั้งหมดจะไม่ถูกบันทึก
+          const acquired = await Promise.race([
+            redis.set(`dedup:msg:${incoming.platformMsgId}`, '1', 'EX', 86400, 'NX'),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Redis dedup timeout')), 2000),
+            ),
+          ]);
           if (acquired === null) {
-            logger.debug('Duplicate message ignored (Redis)', { platformMsgId: incoming.platformMsgId });
+            logger.info('Duplicate message ignored (Redis)', { platformMsgId: incoming.platformMsgId });
             return;
           }
+          claimedDedupKey = `dedup:msg:${incoming.platformMsgId}`;
           redisOk = true;
         } catch {
           // Redis unavailable — fall through to DB check below
@@ -145,7 +151,7 @@ export class MessageService {
             where: { platformMsgId: incoming.platformMsgId },
           });
           if (existing) {
-            logger.debug('Duplicate message ignored (DB)', { platformMsgId: incoming.platformMsgId });
+            logger.info('Duplicate message ignored (DB)', { platformMsgId: incoming.platformMsgId });
             return;
           }
         }
@@ -205,13 +211,15 @@ export class MessageService {
           }
         }
 
+        // ต้องหาให้ครบทุกสถานะ — เดิมกรองแค่ OPEN/PENDING ทำให้ลูกค้าที่แอดมิน
+        // กด "เสร็จสิ้น" (RESOLVED) หรือ snooze ไว้แล้วทักกลับมา ไปโผล่เป็นห้องใหม่
         let conversation = await tx.conversation.findFirst({
           where: {
             contactId: contact.id,
             platform: incoming.platform,
             channelId: incoming.channelId,
-            status: { in: ['OPEN', 'PENDING'] },
           },
+          orderBy: { lastMsgAt: 'desc' },
         });
 
         let isNewConversation = false;
@@ -236,7 +244,11 @@ export class MessageService {
               lastMessage: incoming.content.substring(0, 200),
               lastMsgAt: new Date(),
               unreadCount: { increment: 1 },
-              status: conversation.status === 'RESOLVED' ? 'OPEN' : conversation.status,
+              // ลูกค้าทักกลับมา = ปลุกงานที่ปิด/พักไว้ให้กลับมา OPEN
+              // (OPEN/PENDING คงสถานะเดิม ไม่ไปรบกวน workflow ของแอดมิน)
+              status: conversation.status === 'RESOLVED' || conversation.status === 'SNOOZED'
+                ? 'OPEN'
+                : conversation.status,
             },
           });
         }
@@ -269,6 +281,10 @@ export class MessageService {
         });
 
         return { contact, conversation, message, isNewConversation };
+      }, {
+        // default ของ Prisma คือ maxWait 2s / timeout 5s ซึ่งสั้นเกินไปตอน pool ตึง
+        maxWait: 10_000,
+        timeout: 20_000,
       });
 
       // Auto-tag new conversations with "new" and "follow up 1"
@@ -321,10 +337,29 @@ export class MessageService {
     } catch (error) {
       // P2002 = unique constraint violation: a concurrent request already inserted this message
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        logger.debug('Duplicate message ignored (unique constraint)', { platformMsgId: incoming.platformMsgId });
+        logger.info('Duplicate message ignored (unique constraint)', { platformMsgId: incoming.platformMsgId });
         return;
       }
-      logger.error('MessageService.ingest failed', { error, incoming });
+
+      // ปล่อย lock คืน เพื่อให้ retry / LINE redelivery บันทึกข้อความนี้ได้จริง
+      if (claimedDedupKey) {
+        try {
+          await redis.del(claimedDedupKey);
+        } catch (delError) {
+          logger.error('Failed to release dedup lock — message may be lost on retry', {
+            platformMsgId: incoming.platformMsgId,
+            error: delError instanceof Error ? delError.message : String(delError),
+          });
+        }
+      }
+
+      logger.error('MessageService.ingest failed', {
+        error: error instanceof Error ? error.message : String(error),
+        platform: incoming.platform,
+        platformUid: incoming.platformUid,
+        platformMsgId: incoming.platformMsgId,
+        contentType: incoming.contentType,
+      });
       throw error;
     }
   }
@@ -467,11 +502,24 @@ export class MessageService {
             break;
           }
           case 'FACEBOOK':
-            await FacebookService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
+          case 'INSTAGRAM': {
+            const metaResult = conversation.platform === 'FACEBOOK'
+              ? await FacebookService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl)
+              : await InstagramService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
+            // เก็บ mid ไว้ — ลูกค้ากด "ตอบกลับ" ข้อความนี้ webhook จะส่ง reply_to.mid มาให้ผูกได้
+            if (metaResult.messageId) {
+              await prisma.message.update({
+                where: { id: message.id },
+                data: { platformMsgId: metaResult.messageId },
+              }).catch((err) => {
+                logger.warn('Failed to save Meta message id', {
+                  messageId: message.id,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              });
+            }
             break;
-          case 'INSTAGRAM':
-            await InstagramService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
-            break;
+          }
           case 'TIKTOK':
             await TikTokService.sendMessage(platformContact.platformUid, transportText, params.contentType, params.mediaUrl);
             break;

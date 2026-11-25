@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/lib/api';
 import { useSocket } from './useSocket';
 import { getSocket } from '@/lib/socket';
@@ -25,6 +25,14 @@ export function useMessages(conversationId: string | null) {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const { on, joinConversation, leaveConversation } = useSocket();
+
+  // refs สำหรับ ensureMessageLoaded (ทำงานข้ามหลายรอบ render)
+  const messagesRef = useRef<Message[]>([]);
+  const pageRef = useRef(1);
+  const hasMoreRef = useRef(true);
+  messagesRef.current = messages;
+  pageRef.current = page;
+  hasMoreRef.current = hasMore;
 
   const fetchMessages = useCallback(async (pageNum = 1, append = false) => {
     if (!conversationId) return;
@@ -106,6 +114,44 @@ export function useMessages(conversationId: string | null) {
     };
   }, [conversationId, on, fetchMessages]);
 
+  /**
+   * ทำให้แน่ใจว่าข้อความ id นี้ถูกโหลดมาแสดงแล้ว — ถ้ายังไม่มี (อยู่ในหน้าเก่า)
+   * จะโหลดหน้าก่อนหน้าไปเรื่อย ๆ จนเจอ ใช้ตอนกดกล่อง "ตอบกลับ" เพื่อเลื่อนไปข้อความต้นฉบับ
+   */
+  const ensureMessageLoaded = useCallback(async (messageId: string, maxPages = 40): Promise<boolean> => {
+    if (!conversationId) return false;
+    if (messagesRef.current.some((m) => m.id === messageId)) return true;
+
+    let currentPage = pageRef.current;
+    let more = hasMoreRef.current;
+    setIsLoading(true);
+    try {
+      for (let i = 0; i < maxPages && more; i++) {
+        currentPage += 1;
+        const response = await api.get<MessageListResponse>(
+          `/api/messages?conversationId=${conversationId}&page=${currentPage}&limit=50`
+        );
+        const batch = response.data.messages;
+        more = currentPage < response.data.pagination.totalPages;
+        pageRef.current = currentPage;
+        hasMoreRef.current = more;
+        setMessages((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          return [...batch.filter((m) => !seen.has(m.id)), ...prev];
+        });
+        setPage(currentPage);
+        setHasMore(more);
+        if (batch.some((m) => m.id === messageId)) return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to load older messages:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [conversationId]);
+
   const loadMore = useCallback(() => {
     if (!isLoading && hasMore) {
       fetchMessages(page + 1, true);
@@ -170,6 +216,7 @@ export function useMessages(conversationId: string | null) {
     isLoading,
     hasMore,
     loadMore,
+    ensureMessageLoaded,
     sendMessage,
     refetch: () => fetchMessages(1),
   };

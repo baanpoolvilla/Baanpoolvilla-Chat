@@ -27,7 +27,7 @@ interface ChatWindowProps {
 }
 
 export default function ChatWindow({ conversationId, conversation, isConversationLoading = false, onToggleInfo, contactNameOverride, onCloseChat, onRefreshConversation, onBotToggle }: ChatWindowProps) {
-  const { messages, isLoading, hasMore, loadMore, sendMessage } = useMessages(conversationId);
+  const { messages, isLoading, hasMore, loadMore, ensureMessageLoaded, sendMessage } = useMessages(conversationId);
   const { on } = useSocket();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -162,12 +162,60 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
   const scrollToMessage = (messageId: string) => {
     const el = scrollContainerRef.current?.querySelector(`[data-msg-id="${messageId}"]`) as HTMLElement | null;
-    if (!el || !scrollContainerRef.current) return;
+    if (!el || !scrollContainerRef.current) return false;
     const container = scrollContainerRef.current;
     const containerRect = container.getBoundingClientRect();
     const elRect = el.getBoundingClientRect();
     const relativeTop = elRect.top - containerRect.top + container.scrollTop;
-    container.scrollTo({ top: relativeTop - container.clientHeight / 2, behavior: 'smooth' });
+    intendedBottomRef.current = false;
+    shouldJumpToBottomRef.current = false;
+    container.scrollTo({ top: relativeTop - container.clientHeight / 2 + el.clientHeight / 2, behavior: 'smooth' });
+    return true;
+  };
+
+  // ── กดกล่อง "ตอบกลับ" → เลื่อนไปยังข้อความต้นฉบับ แล้วกระพริบให้เห็น ──────────
+  const [flashMsgId, setFlashMsgId] = useState<string | null>(null);
+  const [jumpNotice, setJumpNotice] = useState<string | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const jumpingRef = useRef(false);
+
+  useEffect(() => () => {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+  }, []);
+
+  const showJumpNotice = (text: string) => {
+    setJumpNotice(text);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => setJumpNotice(null), 2500);
+  };
+
+  const jumpToMessage = async (messageId: string) => {
+    if (jumpingRef.current) return;
+    jumpingRef.current = true;
+    try {
+      let found = scrollToMessage(messageId);
+      if (!found) {
+        showJumpNotice('กำลังค้นหาข้อความต้นฉบับ...');
+        const loaded = await ensureMessageLoaded(messageId);
+        if (loaded) {
+          // รอ React วาดข้อความที่เพิ่งโหลดลง DOM ก่อนค่อยเลื่อน
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          found = scrollToMessage(messageId);
+        }
+      }
+      if (!found) {
+        showJumpNotice('ไม่พบข้อความต้นฉบับ (อาจถูกลบไปแล้ว)');
+        return;
+      }
+      setJumpNotice(null);
+      setFlashMsgId(messageId);
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setFlashMsgId(null), 1800);
+    } finally {
+      jumpingRef.current = false;
+    }
   };
 
   const matchIds = useMemo(() => {
@@ -246,7 +294,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     intendedBottomRef.current = distanceFromBottom < 100;
-    if (el.scrollTop < 50 && hasMore && !isLoading && !intendedBottomRef.current) {
+    if (el.scrollTop < 50 && hasMore && !isLoading && !intendedBottomRef.current && !jumpingRef.current) {
       loadMore();
     }
   };
@@ -422,7 +470,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                   className="flex items-center gap-2 px-4 py-2 hover:bg-amber-100/60"
                 >
                   <button
-                    onClick={() => { scrollToMessage(msg.id); setPinnedExpanded(false); }}
+                    onClick={() => { void jumpToMessage(msg.id); setPinnedExpanded(false); }}
                     className="min-w-0 flex-1 text-left"
                   >
                     <p className="truncate text-xs text-gray-700">{msg.content.slice(0, 80)}</p>
@@ -443,6 +491,13 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* แจ้งสถานะตอนเลื่อนไปข้อความต้นฉบับ (กดกล่องตอบกลับ / ปักหมุด) */}
+      {jumpNotice && (
+        <div className="pointer-events-none fixed left-1/2 top-24 z-40 -translate-x-1/2 rounded-full bg-gray-900/85 px-4 py-1.5 text-xs text-white shadow-lg">
+          {jumpNotice}
         </div>
       )}
 
@@ -489,7 +544,11 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                 new Date(next.sentAt).getTime() - new Date(msg.sentAt).getTime() < 5 * 60 * 1000
               );
               return (
-                <div key={msg.id} data-msg-id={msg.id}>
+                <div
+                  key={msg.id}
+                  data-msg-id={msg.id}
+                  className={flashMsgId === msg.id ? 'rounded-2xl bg-yellow-100/80 transition-colors duration-700' : 'transition-colors duration-700'}
+                >
                   <MessageBubble
                     message={msg}
                     customerName={conversation?.contact?.displayName}
@@ -498,6 +557,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
                     canReply={canModifyChat}
                     canPin={canModifyChat}
                     onContextMenu={(e, m) => setContextMenu({ x: e.clientX, y: e.clientY, message: m })}
+                    onReplyClick={jumpToMessage}
                     highlight={searchQuery.trim() || undefined}
                     isCurrentMatch={matchIdx !== -1 && matchIdx === currentMatchIdx}
                     isGrouped={isGrouped}

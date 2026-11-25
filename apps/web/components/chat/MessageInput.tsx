@@ -6,6 +6,7 @@ import QuickReplyPicker from './QuickReplyPicker';
 import api from '@/lib/api';
 import type { Message } from '@/types';
 import { getReplyPreviewText, getReplySenderLabel } from '@/lib/messageReply';
+import { uploadMedia, getUploadErrorMessage, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from '@/lib/uploadMedia';
 
 interface MessageInputProps {
   onSend: (content: string, contentType?: string, mediaUrl?: string, replyToMessageId?: string) => void | Promise<void>;
@@ -164,8 +165,9 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
   const addFiles = useCallback((files: File[]) => {
     const newAttachments: PendingAttachment[] = [];
     for (const file of files) {
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && file.size > 25 * 1024 * 1024) {
-        setSendError('ไฟล์ใหญ่เกิน 25 MB');
+      // รูปจะถูกย่อก่อนอัปโหลดอยู่แล้ว จึงเช็คเฉพาะวิดีโอ/ไฟล์
+      if (!file.type.startsWith('image/') && file.size > MAX_UPLOAD_BYTES) {
+        setSendError(`ไฟล์ "${file.name}" ใหญ่เกิน ${MAX_UPLOAD_MB} MB`);
         continue;
       }
       const contentType: PendingAttachment['contentType'] = file.type.startsWith('video/')
@@ -207,20 +209,10 @@ export default function MessageInput({ onSend, disabled, platform, replyingTo, o
               // Already uploaded (quick reply image) — reuse the stored URL.
               mediaUrl = att.remoteUrl;
             } else {
-              const file = att.file!;
-              const base64 = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-              });
-              const uploadRes = await api.post('/api/media/upload', { data: base64, mimeType: file.type });
-              mediaUrl = uploadRes.data?.data?.url;
-              if (!mediaUrl) throw new Error('No URL returned from upload');
+              mediaUrl = await uploadMedia(att.file!);
             }
           } catch (uploadErr: unknown) {
-            const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
-            setSendError(`ไม่สามารถอัปโหลดรูปที่ ${i + 1}: ${msg}`);
+            setSendError(`ไม่สามารถอัปโหลดไฟล์ที่ ${i + 1}: ${getUploadErrorMessage(uploadErr)}`);
             return;
           }
           // First item: use text as caption (if any) and attach replyTo

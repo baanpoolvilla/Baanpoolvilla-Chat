@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { logger } from '../lib/logger';
-import prisma from '../lib/prisma';
+import { getLineCredentials } from '../lib/lineCredentials';
 
 interface RequestWithRawBody extends Request {
   rawBody?: string;
@@ -15,27 +15,23 @@ function getRawBody(req: Request): string {
 }
 
 export function verifyLineSignature(req: Request, res: Response, next: NextFunction): void {
-  // async wrapper — we need to await DB lookup
+  // async wrapper — credential lookup is cached but still async
   (async () => {
     try {
-      // Try DB first, fall back to env
-      let channelSecret = process.env.LINE_CHANNEL_SECRET;
-      try {
-        const cfg = await prisma.platformConfig.findUnique({ where: { platform: 'LINE' } });
-        if (cfg) {
-          const c = cfg.config as Record<string, string>;
-          if (c?.channelSecret) channelSecret = c.channelSecret;
-        }
-      } catch { /* ignore DB error, use env fallback */ }
+      const { channelSecret } = await getLineCredentials();
 
       if (!channelSecret) {
-        logger.warn('LINE_CHANNEL_SECRET not configured');
-        res.status(500).json({ error: 'LINE webhook not configured' });
+        // ตอบ 503 (ไม่ใช่ 500) เพื่อบอก LINE ว่าเป็นความผิดพลาดชั่วคราว ให้ redelivery ส่งซ้ำได้
+        logger.error('LINE channel secret unavailable — rejecting webhook', {
+          hint: 'ตั้งค่า LINE ในหน้า Settings หรือใส่ LINE_CHANNEL_SECRET ใน .env.production',
+        });
+        res.status(503).json({ error: 'LINE webhook not configured' });
         return;
       }
 
       const signature = req.headers['x-line-signature'] as string;
       if (!signature) {
+        logger.warn('LINE webhook without signature header');
         res.status(401).json({ error: 'Missing LINE signature' });
         return;
       }
@@ -47,7 +43,13 @@ export function verifyLineSignature(req: Request, res: Response, next: NextFunct
         .digest('base64');
 
       if (hash !== signature) {
-        logger.warn('Invalid LINE webhook signature');
+        // ลายเซ็นไม่ตรง = secret ผิด หรือมี OA อื่นยิงมาที่ webhook เดียวกัน — ข้อความจะหายทั้งหมด
+        logger.error('Invalid LINE webhook signature — message dropped', {
+          bodyBytes: body.length,
+          eventTypes: Array.isArray(req.body?.events)
+            ? req.body.events.map((e: { type?: string }) => e?.type)
+            : undefined,
+        });
         res.status(401).json({ error: 'Invalid signature' });
         return;
       }

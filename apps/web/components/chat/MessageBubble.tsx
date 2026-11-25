@@ -4,7 +4,8 @@ import { memo, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, Platform } from '@/types';
 import { format } from 'date-fns';
-import { Bot, Download, ExternalLink, Globe, Pin, X } from 'lucide-react';
+import { Bot, Download, ExternalLink, Globe, ImageOff, Pin, X } from 'lucide-react';
+import api from '@/lib/api';
 import PlatformBadge from '@/components/common/PlatformBadge';
 import { getReplyPreviewText, getReplySenderLabel } from '@/lib/messageReply';
 import { createFallbackLinkPreview, extractUrls, normalizeUrl, type LinkPreviewData } from '@/lib/linkPreview';
@@ -17,6 +18,8 @@ interface MessageBubbleProps {
   canReply?: boolean;
   canPin?: boolean;
   onContextMenu?: (e: React.MouseEvent, message: Message) => void;
+  /** คลิกกล่องข้อความที่ถูกตอบกลับ → เลื่อนไปยังข้อความต้นฉบับ */
+  onReplyClick?: (messageId: string) => void;
   highlight?: string;
   isCurrentMatch?: boolean;
   /** ข้อความนี้ส่งต่อเนื่องจากคนเดิม — ซ่อน avatar + ชื่อ ลด margin */
@@ -268,6 +271,7 @@ function MessageBubble({
   canReply = false,
   canPin = false,
   onContextMenu,
+  onReplyClick,
   highlight,
   isCurrentMatch,
   isGrouped = false,
@@ -424,13 +428,24 @@ function MessageBubble({
               const m = rm.content.match(/\[Sticker:\s*\d+\/(\d+)\]/);
               if (m) thumbUrl = `https://stickershop.line-scdn.net/stickershop/v1/sticker/${m[1]}/android/sticker.png`;
             }
+            const canJump = Boolean(onReplyClick && rm.id);
             return (
-              <div className={cn(
-                'mb-2 flex items-center gap-2 rounded-xl border-l-2 px-3 py-1.5',
-                isCustomer && 'border-gray-300 bg-gray-50 text-gray-700',
-                isAdmin && 'border-white/40 bg-white/10 text-brand-50',
-                isBot && 'border-purple-300 bg-purple-50 text-purple-800'
-              )}>
+              <div
+                role={canJump ? 'button' : undefined}
+                tabIndex={canJump ? 0 : undefined}
+                title={canJump ? 'ไปที่ข้อความต้นฉบับ' : undefined}
+                onClick={canJump ? (e) => { e.stopPropagation(); onReplyClick!(rm.id); } : undefined}
+                onKeyDown={canJump ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onReplyClick!(rm.id); }
+                } : undefined}
+                className={cn(
+                  'mb-2 flex items-center gap-2 rounded-xl border-l-2 px-3 py-1.5',
+                  canJump && 'cursor-pointer transition-opacity hover:opacity-80 active:opacity-60',
+                  isCustomer && 'border-gray-300 bg-gray-50 text-gray-700',
+                  isAdmin && 'border-white/40 bg-white/10 text-brand-50',
+                  isBot && 'border-purple-300 bg-purple-50 text-purple-800'
+                )}
+              >
                 <div className="min-w-0 flex-1">
                   <p className={cn(
                     'text-[10px] font-semibold',
@@ -449,6 +464,7 @@ function MessageBubble({
                     className="h-10 w-10 flex-shrink-0 rounded-md object-contain"
                     loading="lazy"
                     decoding="async"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
                 )}
               </div>
@@ -512,6 +528,102 @@ function MessageBubble({
   );
 }
 
+/**
+ * รูป/วิดีโอที่กู้คืนตัวเองได้: ถ้าโหลดไม่ขึ้น (เช่นลิงก์ CDN ของ Facebook หมดอายุ)
+ * จะขอให้เซิร์ฟเวอร์ดึงไฟล์ใหม่จากแพลตฟอร์มมาเก็บไว้ แล้วลองโหลดอีกครั้ง
+ * ผลลัพธ์แคชไว้ต่อ message id กันยิงซ้ำตอน re-render / เปิดแชทเดิมอีกรอบ
+ */
+const recoveredMediaUrls = new Map<string, string | null>();
+
+function RecoverableMedia({
+  message,
+  kind,
+  onImageClick,
+}: {
+  message: Message;
+  kind: 'image' | 'video';
+  onImageClick: (url: string) => void;
+}) {
+  const cached = recoveredMediaUrls.get(message.id);
+  const [src, setSrc] = useState<string | null>(cached === undefined ? message.mediaUrl ?? null : cached);
+  const [status, setStatus] = useState<'ok' | 'recovering' | 'failed'>(cached === null ? 'failed' : 'ok');
+  const triedRef = useRef(cached !== undefined);
+
+  useEffect(() => {
+    const c = recoveredMediaUrls.get(message.id);
+    setSrc(c === undefined ? message.mediaUrl ?? null : c);
+    setStatus(c === null ? 'failed' : 'ok');
+    triedRef.current = c !== undefined;
+  }, [message.id, message.mediaUrl]);
+
+  const handleError = useCallback(async () => {
+    // ข้อความที่ยังส่งไม่เสร็จ (optimistic) ยังไม่มีในฐานข้อมูล
+    if (triedRef.current || message.id.startsWith('temp-')) {
+      setStatus('failed');
+      return;
+    }
+    triedRef.current = true;
+    setStatus('recovering');
+    try {
+      const res = await api.post(`/api/media/refresh/${message.id}`);
+      const url = res.data?.data?.url as string | undefined;
+      if (!url) throw new Error('no url');
+      // URL เดิมแต่เมื่อกี้โหลดไม่ได้ → ใส่ query กัน cache ของเบราว์เซอร์
+      const next = url === src ? `${url}${url.includes('?') ? '&' : '?'}r=${Date.now()}` : url;
+      recoveredMediaUrls.set(message.id, next);
+      setSrc(next);
+      setStatus('ok');
+    } catch {
+      recoveredMediaUrls.set(message.id, null);
+      setStatus('failed');
+    }
+  }, [message.id, src]);
+
+  const label = kind === 'video' ? 'วิดีโอ' : 'รูปภาพ';
+
+  if (status === 'failed' || !src) {
+    return (
+      <div className="mt-1 flex h-24 w-48 max-w-full flex-col items-center justify-center gap-1 rounded-xl bg-gray-100 px-2 text-center text-gray-400">
+        <ImageOff className="h-6 w-6" />
+        <span className="text-[11px]">{label}นี้หมดอายุ / ไม่สามารถแสดงได้แล้ว</span>
+      </div>
+    );
+  }
+
+  if (status === 'recovering') {
+    return (
+      <div className="mt-1 flex h-24 w-48 max-w-full items-center justify-center rounded-xl bg-gray-100 text-[11px] text-gray-400">
+        กำลังโหลด{label}...
+      </div>
+    );
+  }
+
+  if (kind === 'video') {
+    return (
+      <video
+        src={src}
+        controls
+        className="max-w-full rounded-xl mt-1"
+        style={{ maxHeight: 280 }}
+        onError={handleError}
+      />
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt="Image"
+      className="max-w-full rounded-xl mt-1 cursor-pointer hover:opacity-90 transition-opacity"
+      style={{ maxHeight: 280, minHeight: 80 }}
+      loading="eager"
+      decoding="async"
+      onError={handleError}
+      onClick={() => onImageClick(src)}
+    />
+  );
+}
+
 function renderContent(
   message: Message,
   onImageClick: (url: string) => void,
@@ -523,15 +635,7 @@ function renderContent(
       return (
         <div>
           {message.mediaUrl && (
-            <img
-              src={message.mediaUrl}
-              alt="Image"
-              className="max-w-full rounded-xl mt-1 cursor-pointer hover:opacity-90 transition-opacity"
-              style={{ maxHeight: 280, minHeight: 80 }}
-              loading="eager"
-              decoding="async"
-              onClick={() => onImageClick(message.mediaUrl!)}
-            />
+            <RecoverableMedia message={message} kind="image" onImageClick={onImageClick} />
           )}
           {message.content !== '[Image]' && <p className="text-sm mt-1">{message.content}</p>}
         </div>
@@ -540,12 +644,7 @@ function renderContent(
       return (
         <div>
           {message.mediaUrl && (
-            <video
-              src={message.mediaUrl}
-              controls
-              className="max-w-full rounded-xl mt-1"
-              style={{ maxHeight: 280 }}
-            />
+            <RecoverableMedia message={message} kind="video" onImageClick={onImageClick} />
           )}
         </div>
       );

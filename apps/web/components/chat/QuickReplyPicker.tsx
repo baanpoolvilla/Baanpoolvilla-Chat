@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { X, Plus, Pencil, Trash2, Check, ImagePlus, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import type { QuickReply } from '@/types';
+import { uploadMedia, getUploadErrorMessage } from '@/lib/uploadMedia';
 
 interface QuickReplyPickerProps {
   onSelect: (content: string, mediaUrl?: string | null) => void;
@@ -13,7 +14,6 @@ interface QuickReplyPickerProps {
 
 // Content placeholder for image-only templates — platform services treat it as "no caption".
 const IMAGE_ONLY_CONTENT = '[Image]';
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 function ImageField({
   mediaUrl,
@@ -121,27 +121,15 @@ export default function QuickReplyPicker({ onSelect, onClose, className }: Quick
       setError('แนบได้เฉพาะไฟล์รูปภาพ');
       return;
     }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setError('รูปใหญ่เกิน 10 MB');
-      return;
-    }
 
     setUploadingFor(target);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
-        reader.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
-        reader.readAsDataURL(file);
-      });
-      const res = await api.post('/api/media/upload', { data: base64, mimeType: file.type });
-      const url = res.data?.data?.url;
-      if (!url) throw new Error('เซิร์ฟเวอร์ไม่ได้ส่ง URL กลับมา');
+      const url = await uploadMedia(file);
 
       if (target === 'new') setNewMediaUrl(url);
       else setEditMediaUrl(url);
     } catch (err: unknown) {
-      setError(err instanceof Error ? `อัปโหลดรูปไม่สำเร็จ: ${err.message}` : 'อัปโหลดรูปไม่สำเร็จ');
+      setError(`อัปโหลดรูปไม่สำเร็จ: ${getUploadErrorMessage(err)}`);
     } finally {
       setUploadingFor(null);
     }

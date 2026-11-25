@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import TargetSelector from './TargetSelector';
 import axios from 'axios';
+import { uploadMedia } from '@/lib/uploadMedia';
 
 const ALL_PLATFORMS = ['LINE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK'];
 
@@ -98,23 +99,10 @@ export default function BroadcastComposer({ onDone, broadcastId, initialData }: 
       e.target.value = '';
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError('รูปภาพต้องมีขนาดไม่เกิน 10 MB');
-      e.target.value = '';
-      return;
-    }
     setError('');
     setUploadingImage(true);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const res = await api.post('/api/media/upload', { data: base64, mimeType: file.type });
-      const url = res.data?.data?.url;
-      if (!url) throw new Error('อัปโหลดไม่สำเร็จ');
+      const url = await uploadMedia(file);
       setImageUrl(url);
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
@@ -292,7 +280,7 @@ export default function BroadcastComposer({ onDone, broadcastId, initialData }: 
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                     </svg>
                     <span className="text-sm text-gray-600">คลิกเพื่อเลือกรูปภาพ</span>
-                    <span className="text-xs text-gray-400 mt-1">PNG, JPG, GIF สูงสุด 10 MB</span>
+                    <span className="text-xs text-gray-400 mt-1">PNG, JPG, GIF (รูปใหญ่จะย่อให้อัตโนมัติ)</span>
                   </>
                 )}
               </label>

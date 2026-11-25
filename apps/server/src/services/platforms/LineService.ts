@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { ContentType } from '@prisma/client';
 import { logger } from '../../lib/logger';
-import prisma from '../../lib/prisma';
+import { getLineCredentials } from '../../lib/lineCredentials';
 
 export class LineService {
   private static readonly API_URL = 'https://api.line.me/v2/bot/message';
@@ -19,14 +19,8 @@ export class LineService {
   ]);
 
   static async getAccessToken(): Promise<string | null> {
-    try {
-      const cfg = await prisma.platformConfig.findUnique({ where: { platform: 'LINE' } });
-      if (cfg) {
-        const c = cfg.config as Record<string, string>;
-        if (c?.accessToken) return c.accessToken;
-      }
-    } catch { /* ignore */ }
-    return process.env.LINE_ACCESS_TOKEN || null;
+    const { accessToken } = await getLineCredentials();
+    return accessToken || null;
   }
 
   static async sendMessage(
@@ -159,7 +153,21 @@ export class LineService {
     };
   }
 
-  static async downloadMedia(messageId: string): Promise<{ filename: string } | null> {
+  /**
+   * โหลดไฟล์จาก LINE มาเก็บไว้เอง — LINE เก็บ content ไว้ให้ดึงได้แค่ช่วงเวลาหนึ่ง
+   * ถ้าตกไปใช้ proxy URL (/api/media/line/:id) รูปจะเปิดไม่ได้เมื่อ LINE ลบไฟล์แล้ว
+   * จึง retry เผื่อวิดีโอ/ไฟล์ใหญ่ที่ LINE ยังประมวลผลไม่เสร็จตอน webhook มาถึง
+   */
+  static async downloadMedia(messageId: string, attempts = 3): Promise<{ filename: string } | null> {
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      const result = await LineService.downloadMediaOnce(messageId, attempt === attempts);
+      if (result) return result;
+      if (attempt < attempts) await new Promise((r) => setTimeout(r, 1500 * attempt));
+    }
+    return null;
+  }
+
+  private static async downloadMediaOnce(messageId: string, logFailure: boolean): Promise<{ filename: string } | null> {
     const accessToken = await LineService.getAccessToken();
     if (!accessToken) return null;
 
@@ -195,7 +203,14 @@ export class LineService {
       logger.debug('LINE media downloaded', { messageId, filename });
       return { filename };
     } catch (err) {
-      logger.warn('Failed to download LINE media, will use proxy URL', { messageId, error: err });
+      const status = (err as { response?: { status?: number } }).response?.status;
+      if (logFailure) {
+        logger.warn('Failed to download LINE media, will use proxy URL', {
+          messageId,
+          status,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       return null;
     }
   }

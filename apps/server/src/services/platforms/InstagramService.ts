@@ -10,11 +10,11 @@ export class InstagramService {
     content: string,
     contentType: ContentType | string,
     mediaUrl?: string
-  ): Promise<void> {
+  ): Promise<{ messageId?: string }> {
     const accessToken = process.env.META_PAGE_ACCESS_TOKEN;
     if (!accessToken) {
       logger.warn('META_PAGE_ACCESS_TOKEN not configured, skipping send');
-      return;
+      return {};
     }
 
     try {
@@ -40,7 +40,7 @@ export class InstagramService {
           messagePayload = { text: content };
       }
 
-      await axios.post(
+      const response = await axios.post(
         InstagramService.API_URL,
         {
           recipient: { id: recipientId },
@@ -53,6 +53,8 @@ export class InstagramService {
       );
 
       logger.debug('Instagram message sent', { recipientId });
+      // message_id ใช้ผูกข้อความ เมื่อลูกค้ากด "ตอบกลับ" ข้อความนี้ (reply_to.mid)
+      return { messageId: (response.data as { message_id?: string } | undefined)?.message_id };
     } catch (error) {
       logger.error('Instagram sendMessage failed', { error, recipientId });
       throw error;
