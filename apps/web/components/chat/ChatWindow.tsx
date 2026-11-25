@@ -80,6 +80,9 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     } catch { /* ignore */ }
   }, [canModifyChat, conversationId, appliedStatusTagIds, onRefreshConversation]);
 
+  // รีเซ็ตสถานะเลื่อนจอ/ค้นหา/ตอบกลับ เฉพาะตอน "เปลี่ยนห้อง" เท่านั้น
+  // เดิมผูกกับ conversation?.reads ด้วย → ทุกครั้งที่มีคนอ่าน/ข้อมูลห้องรีเฟรช
+  // จอจะถูกตั้งให้ดึงกลับล่างสุด และล้างข้อความที่กำลังตอบกลับทิ้ง
   useEffect(() => {
     shouldJumpToBottomRef.current = true;
     intendedBottomRef.current = true;
@@ -87,6 +90,9 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
     setSearchOpen(false);
     setSearchQuery('');
     setCurrentMatchIdx(0);
+  }, [conversationId]);
+
+  useEffect(() => {
     setReads(conversation?.reads || []);
   }, [conversationId, conversation?.reads]);
 
@@ -168,17 +174,12 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
 
   const scrollToMessage = (messageId: string, behavior: ScrollBehavior = 'smooth') => {
     const el = scrollContainerRef.current?.querySelector(`[data-msg-id="${messageId}"]`) as HTMLElement | null;
-    if (!el || !scrollContainerRef.current) return false;
-    const container = scrollContainerRef.current;
-    const containerRect = container.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const relativeTop = elRect.top - containerRect.top + container.scrollTop;
+    if (!el) return false;
     intendedBottomRef.current = false;
     shouldJumpToBottomRef.current = false;
-    const target = Math.max(0, relativeTop - container.clientHeight / 2 + el.clientHeight / 2);
-    if (Math.abs(container.scrollTop - target) > 4) {
-      container.scrollTo({ top: target, behavior });
-    }
+    // ใช้ scrollIntoView ให้เบราว์เซอร์หาเองว่ากล่องไหนเลื่อนได้จริง (วิธีเดียวกับ scrollToBottom ที่ใช้ได้)
+    // เดิมสั่ง container.scrollTo() ตรง ๆ แต่ในบาง layout กล่องที่เลื่อนจริงเป็นตัวแม่ → จอไม่ขยับ เห็นแค่ไฮไลต์
+    el.scrollIntoView({ block: 'center', inline: 'nearest', behavior });
     return true;
   };
 
@@ -201,6 +202,7 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
   };
 
   const jumpToMessage = async (messageId: string, targetConversationId?: string) => {
+    console.info('[reply-jump] click', { messageId, targetConversationId, currentConversationId: conversationId });
     // ข้อความต้นฉบับอยู่คนละห้อง (เช่นห้องเก่าของลูกค้าคนเดิมที่เคยกด "เสร็จสิ้น")
     // → เปิดห้องนั้นพร้อม ?msg= แล้วให้ห้องนั้นเลื่อนไปที่ข้อความเอง
     if (targetConversationId && targetConversationId !== conversationId) {
@@ -229,6 +231,19 @@ export default function ChatWindow({ conversationId, conversation, isConversatio
         jumpLockUntilRef.current = 0;
         showJumpNotice('ไม่พบข้อความต้นฉบับ (อาจถูกลบไปแล้ว)');
         return;
+      }
+      // log ไว้วินิจฉัย ถ้าจอยังไม่เลื่อน: ดู Console หา [reply-jump]
+      {
+        const c = scrollContainerRef.current;
+        const el = c?.querySelector(`[data-msg-id="${messageId}"]`) as HTMLElement | null;
+        const snapshot = () => ({
+          scrollTop: c?.scrollTop,
+          scrollHeight: c?.scrollHeight,
+          clientHeight: c?.clientHeight,
+          elTopInView: el && c ? Math.round(el.getBoundingClientRect().top - c.getBoundingClientRect().top) : null,
+        });
+        console.info('[reply-jump] after scroll', messageId, snapshot());
+        setTimeout(() => console.info('[reply-jump] +1.5s', messageId, snapshot()), 1500);
       }
       // รูปรอบ ๆ ข้อความอาจยังโหลดไม่เสร็จ ตำแหน่งจะขยับ → จัดให้อยู่กลางจออีกรอบ
       jumpLockUntilRef.current = Date.now() + 2000;
